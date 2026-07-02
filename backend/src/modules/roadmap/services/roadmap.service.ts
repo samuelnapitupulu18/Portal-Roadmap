@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { StoryListQueryDto, StorySummaryDto, StoryItemDto } from './dto/story-list.dto';
-import { StoryDetailDto } from './dto/story-detail.dto';
+import { StoryListQueryDto, StorySummaryDto, StoryItemDto } from '../dto/story-list.dto';
+import { StoryDetailDto } from '../dto/story-detail.dto';
 
 @Injectable()
 export class RoadmapService {

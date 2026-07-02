@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { RoadmapService } from './roadmap.service';
-import { StoryListQueryDto } from './dto/story-list.dto';
-import { IpWhitelistGuard } from '../../common/guards/ip-whitelist.guard';
+import { RoadmapService } from '../services/roadmap.service';
+import { StoryListQueryDto } from '../dto/story-list.dto';
+import { IpWhitelistGuard } from '../../../common/guards/ip-whitelist.guard';
 
 @Controller('roadmap')
 @UseGuards(IpWhitelistGuard)

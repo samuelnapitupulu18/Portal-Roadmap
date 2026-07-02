@@ -1,9 +1,5 @@
 import React from 'react'
 
-/**
- * @param {Object} props
- * @param {import('../types/roadmap.types.js').StatItem[]} props.stats
- */
 export function StatsSummary({ stats }) {
   return (
     <section className="bg-[#41aa72] text-white py-8 px-6">

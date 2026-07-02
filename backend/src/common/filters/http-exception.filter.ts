@@ -1,19 +1,6 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Response, Request } from 'express';
 
-/**
- * HttpExceptionFilter
- *
- * Global exception filter that standardizes all error responses
- * into a consistent JSON format.
- */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -35,12 +22,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
           : (exceptionResponse as any).message || exception.message;
     }
 
-    // Log the error
     if (status >= 500) {
-      this.logger.error(
-        `${request.method} ${request.url} → ${status}`,
-        exception instanceof Error ? exception.stack : undefined,
-      );
+      this.logger.error(`${request.method} ${request.url} → ${status}`, exception instanceof Error ? exception.stack : undefined);
     } else {
       this.logger.warn(`${request.method} ${request.url} → ${status}: ${message}`);
     }
