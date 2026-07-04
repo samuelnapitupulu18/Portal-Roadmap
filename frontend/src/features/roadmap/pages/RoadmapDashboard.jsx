@@ -13,6 +13,9 @@ export function RoadmapDashboard() {
     // Data
     tasks,
     stats,
+    filterOptions,
+    isLoading,
+    error,
 
     // View
     activeView,
@@ -38,7 +41,7 @@ export function RoadmapDashboard() {
   } = useRoadmapData()
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8] font-sans">
+    <div className="min-h-screen bg-[#f2fcf5] font-sans">
       <main>
         <HeroSection />
         <StatsSummary stats={stats} />
@@ -55,6 +58,8 @@ export function RoadmapDashboard() {
 
           <FilterPanel
             isOpen={isFilterOpen}
+            statusOptions={filterOptions?.statuses || []}
+            projectOptions={filterOptions?.projects || []}
             selectedStatus={selectedStatus}
             onStatusChange={setSelectedStatus}
             selectedProject={selectedProject}
@@ -63,16 +68,31 @@ export function RoadmapDashboard() {
             onMonthChange={setSelectedMonth}
           />
 
+          <div className="px-16 mb-4 text-sm font-medium text-gray-400">
+            {tasks.length} work items
+          </div>
+
           {activeView === 'cards' && (
             <div className="px-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {tasks.map((task) => (
+              {isLoading && (
+                <div className="col-span-3 py-16 text-center text-gray-400">
+                  <p className="text-lg font-medium">Loading stories...</p>
+                </div>
+              )}
+              {error && !isLoading && (
+                <div className="col-span-3 py-16 text-center text-red-500">
+                  <p className="text-lg font-medium">Error loading data</p>
+                  <p className="text-sm mt-1">{error}</p>
+                </div>
+              )}
+              {!isLoading && !error && tasks.map((task) => (
                 <TaskCard
                   key={task.id}
                   {...task}
                   onClick={() => handleTaskClick(task)}
                 />
               ))}
-              {tasks.length === 0 && (
+              {!isLoading && !error && tasks.length === 0 && (
                 <div className="col-span-3 py-16 text-center text-gray-400">
                   <p className="text-lg font-medium">No items found</p>
                   <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
@@ -81,7 +101,7 @@ export function RoadmapDashboard() {
             </div>
           )}
 
-          {activeView === 'timeline' && (
+          {activeView === 'timeline' && !isLoading && !error && (
             <TimelineView tasks={tasks} onTaskClick={handleTaskClick} />
           )}
         </div>

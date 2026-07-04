@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
-import { statusOptions, projectOptions } from '@/features/roadmap/data/mockData'
 
 // Custom Dropdown Component
 function Dropdown({ label, value, options, allLabel, onChange }) {
@@ -70,6 +69,8 @@ const monthOptions = ['Apr 2026', 'May 2026', 'Jun 2026', 'Jul 2026', 'Aug 2026'
 
 export function FilterPanel({
   isOpen,
+  statusOptions = [],
+  projectOptions = [],
   selectedStatus,
   onStatusChange,
   selectedProject,
@@ -81,7 +82,7 @@ export function FilterPanel({
 
   return (
     <div className="px-16 pb-6">
-      <div className="flex gap-4">
+      <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-6 flex gap-6">
         <Dropdown
           label="Status"
           value={selectedStatus}
