@@ -8,7 +8,7 @@ import { FilterPanel } from '@/features/roadmap/components/FilterPanel'
 import { TimelineView } from '@/features/roadmap/components/TimelineView'
 import { DetailPanel } from '@/features/roadmap/components/DetailPanel'
 
-export function RoadmapDashboard() {
+export function RoadmapDashboard({ onNavigate }) {
   const {
     // Data
     tasks,
@@ -43,7 +43,7 @@ export function RoadmapDashboard() {
   return (
     <div className="min-h-screen bg-[#f2fcf5] font-sans">
       <main>
-        <HeroSection />
+        <HeroSection onNavigate={onNavigate} />
         <StatsSummary stats={stats} />
         <div className="max-w-7xl mx-auto pb-16">
           <Toolbar
@@ -102,7 +102,7 @@ export function RoadmapDashboard() {
           )}
 
           {activeView === 'timeline' && !isLoading && !error && (
-            <TimelineView tasks={tasks} onTaskClick={handleTaskClick} />
+            <TimelineView tasks={tasks} onTaskClick={handleTaskClick} selectedMonth={selectedMonth} />
           )}
         </div>
       </main>

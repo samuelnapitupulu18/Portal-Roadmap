@@ -28,11 +28,12 @@ export function useRoadmapData() {
         const queryParams = new URLSearchParams()
         if (selectedStatus) queryParams.append('status', selectedStatus)
         if (selectedProject) queryParams.append('project', selectedProject)
+        if (selectedMonth && selectedMonth !== 'All Months') queryParams.append('month', selectedMonth)
         if (searchQuery) queryParams.append('search', searchQuery)
 
         const response = await fetch(`${API_BASE_URL}/roadmap/stories?${queryParams.toString()}`)
         if (!response.ok) throw new Error('Failed to fetch stories')
-        
+
         const result = await response.json()
         const { stories, summary, filterOptions: fOptions } = result.data
 
@@ -60,7 +61,7 @@ export function useRoadmapData() {
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [selectedStatus, selectedProject, searchQuery])
+  }, [selectedStatus, selectedProject, selectedMonth, searchQuery])
 
   // Fetch detail data
   const handleTaskClick = useCallback(async (task) => {

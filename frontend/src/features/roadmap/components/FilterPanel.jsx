@@ -65,7 +65,10 @@ function Dropdown({ label, value, options, allLabel, onChange }) {
   )
 }
 
-const monthOptions = ['Apr 2026', 'May 2026', 'Jun 2026', 'Jul 2026', 'Aug 2026']
+const MONTH_LABELS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
 
 export function FilterPanel({
   isOpen,
@@ -100,7 +103,7 @@ export function FilterPanel({
         <Dropdown
           label="Month"
           value={selectedMonth}
-          options={monthOptions}
+          options={MONTH_LABELS}
           allLabel="All Months"
           onChange={onMonthChange}
         />
