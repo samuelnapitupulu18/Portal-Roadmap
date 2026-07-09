@@ -98,7 +98,7 @@ class RoadmapService {
     return jiraClient.getAttachmentStream(attachmentId);
   }
 
-  async _getStories(query) {
+  async _getStories(query = {}) {
     const cacheKey = CACHE_KEYS.ALL_STORIES(`${query.month || ''}-${query.year || ''}`);
     const cached = cache.get(cacheKey);
     if (cached) return cached;
