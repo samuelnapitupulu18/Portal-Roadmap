@@ -3,25 +3,20 @@ import { useRoadmapData } from '@/features/roadmap/api/useRoadmapData'
 import { HeroSection } from '@/features/roadmap/components/HeroSection'
 import { StatsSummary } from '@/features/roadmap/components/StatsSummary'
 import { Toolbar } from '@/features/roadmap/components/Toolbar'
-import { TaskCard } from '@/features/roadmap/components/TaskCard'
+import { EpicCard } from '@/features/roadmap/components/EpicCard'
 import { FilterPanel } from '@/features/roadmap/components/FilterPanel'
 import { TimelineView } from '@/features/roadmap/components/TimelineView'
 import { DetailPanel } from '@/features/roadmap/components/DetailPanel'
 
-export function RoadmapDashboard({ onNavigate }) {
+export function RoadmapDashboard() {
   const {
-    // Data
     tasks,
     stats,
     filterOptions,
     isLoading,
     error,
-
-    // View
     activeView,
     setActiveView,
-
-    // Filters
     isFilterOpen,
     toggleFilter,
     selectedStatus,
@@ -32,18 +27,19 @@ export function RoadmapDashboard({ onNavigate }) {
     setSelectedMonth,
     searchQuery,
     setSearchQuery,
-
-    // Detail Panel
     selectedTask,
     isDetailOpen,
     handleTaskClick,
+    handleChildClick,
+    handleBack,
+    canGoBack,
     handleDetailClose,
   } = useRoadmapData()
 
   return (
     <div className="min-h-screen bg-[#f2fcf5] font-sans">
       <main>
-        <HeroSection onNavigate={onNavigate} />
+        <HeroSection />
         <StatsSummary stats={stats} />
         <div className="max-w-7xl mx-auto pb-16">
           <Toolbar
@@ -53,7 +49,6 @@ export function RoadmapDashboard({ onNavigate }) {
             onFilterToggle={toggleFilter}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            totalItems={tasks.length}
           />
 
           <FilterPanel
@@ -86,7 +81,7 @@ export function RoadmapDashboard({ onNavigate }) {
                 </div>
               )}
               {!isLoading && !error && tasks.map((task) => (
-                <TaskCard
+                <EpicCard
                   key={task.id}
                   {...task}
                   onClick={() => handleTaskClick(task)}
@@ -111,6 +106,9 @@ export function RoadmapDashboard({ onNavigate }) {
         task={selectedTask}
         isOpen={isDetailOpen}
         onClose={handleDetailClose}
+        onChildClick={handleChildClick}
+        onBack={handleBack}
+        canGoBack={canGoBack}
       />
     </div>
   )
