@@ -19,8 +19,8 @@ export function useRoadmapData() {
 
   const [selectedTask, setSelectedTask] = useState(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [taskHistory, setTaskHistory] = useState([])
 
-  // Fetch list data
   useEffect(() => {
     const fetchStories = async () => {
       setIsLoading(true)
@@ -41,10 +41,10 @@ export function useRoadmapData() {
         setFilterOptions(fOptions)
         setStats([
           { label: 'Total Work', count: summary.total },
-          { label: 'Planned', count: summary.planned },
+          { label: 'To Do', count: summary.planned },
           { label: 'In Progress', count: summary.inProgress },
-          { label: 'Testing', count: summary.testing },
-          { label: 'Released/Done', count: summary.done },
+          { label: 'In Review', count: summary.testing },
+          { label: 'Done', count: summary.done },
         ])
         setError(null)
       } catch (err) {
@@ -55,7 +55,6 @@ export function useRoadmapData() {
       }
     }
 
-    // Debounce search slightly
     const timeoutId = setTimeout(() => {
       fetchStories()
     }, 300)
@@ -63,23 +62,45 @@ export function useRoadmapData() {
     return () => clearTimeout(timeoutId)
   }, [selectedStatus, selectedProject, selectedMonth, searchQuery])
 
-  // Fetch detail data
-  const handleTaskClick = useCallback(async (task) => {
-    setIsDetailOpen(true)
+  const fetchTaskDetail = useCallback(async (task) => {
     try {
       const response = await fetch(`${API_BASE_URL}/roadmap/stories/${task.id}`)
       if (!response.ok) throw new Error('Failed to fetch story details')
       const result = await response.json()
-      setSelectedTask(result.data)
+      return result.data
     } catch (err) {
       console.error(err)
-      // Fallback to basic task info if fetch fails
-      setSelectedTask(task)
+      return task
     }
+  }, [])
+
+  const handleTaskClick = useCallback(async (task) => {
+    setIsDetailOpen(true)
+    setTaskHistory([])
+    const detail = await fetchTaskDetail(task)
+    setSelectedTask(detail)
+  }, [fetchTaskDetail])
+
+  const handleChildClick = useCallback(async (child) => {
+    setSelectedTask((current) => {
+      if (current) setTaskHistory((prev) => [...prev, current])
+      return current
+    })
+    const detail = await fetchTaskDetail(child)
+    setSelectedTask(detail)
+  }, [fetchTaskDetail])
+
+  const handleBack = useCallback(() => {
+    setTaskHistory((prev) => {
+      if (prev.length === 0) return prev
+      setSelectedTask(prev[prev.length - 1])
+      return prev.slice(0, -1)
+    })
   }, [])
 
   const handleDetailClose = useCallback(() => {
     setIsDetailOpen(false)
+    setTaskHistory([])
     setTimeout(() => setSelectedTask(null), 300)
   }, [])
 
@@ -108,6 +129,9 @@ export function useRoadmapData() {
     selectedTask,
     isDetailOpen,
     handleTaskClick,
+    handleChildClick,
+    handleBack,
+    canGoBack: taskHistory.length > 0,
     handleDetailClose,
   }
 }

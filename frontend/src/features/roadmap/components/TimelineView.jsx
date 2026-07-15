@@ -6,21 +6,19 @@ const MONTH_LABELS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ]
 
-/** Generate month columns dynamically for the last 6 months. */
+const FULL_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
 function getMonthColumns(selectedMonth) {
   const columns = []
   let targetDate = new Date()
 
   if (selectedMonth && selectedMonth !== 'All Months') {
-    const m = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ].indexOf(selectedMonth)
-    
+    const m = FULL_MONTHS.indexOf(selectedMonth)
     if (m !== -1) {
       targetDate = new Date(targetDate.getFullYear(), m, 1)
-      
-      // If a specific month is selected, only show that ONE month.
       columns.push({
         key: `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`,
         label: `${MONTH_LABELS[targetDate.getMonth()]} ${targetDate.getFullYear()}`,
@@ -28,8 +26,7 @@ function getMonthColumns(selectedMonth) {
       return columns
     }
   }
-  
-  // Start from 5 months ago relative to targetDate
+
   const cursor = new Date(targetDate.getFullYear(), targetDate.getMonth() - 5, 1)
 
   for (let i = 0; i < 6; i++) {
@@ -45,7 +42,6 @@ function getMonthColumns(selectedMonth) {
   return columns
 }
 
-/** Group tasks by their tag/project. */
 function groupTasksByTag(tasks) {
   const grouped = {}
   tasks.forEach((task) => {
@@ -57,27 +53,19 @@ function groupTasksByTag(tasks) {
   return Object.values(grouped).sort((a, b) => b.tasks.length - a.tasks.length)
 }
 
-/** Filter tasks that overlap a given month. */
 function getTasksInMonth(tasks, monthKey) {
   const monthStart = monthKey + '-01'
   const monthEnd = monthKey + '-31'
 
   return tasks.filter((task) => {
-    let start = task.startDate || ''
-    let end = task.endDate || task.startDate || ''
-
-    // Fallback to updatedDate if neither start nor end is present
-    if (!start && !end && task.updatedDate) {
-      start = task.updatedDate
-      end = task.updatedDate
-    }
-
+    const start = task.startDate || ''
+    const end = task.endDate || task.startDate || ''
     if (!start) return false
     return start <= monthEnd && end >= monthStart
   })
 }
 
-function TimelineCell({ tasks, monthKey, onTaskClick }) {
+function TimelineCell({ tasks, onTaskClick }) {
   const [isExpanded, setIsExpanded] = React.useState(false)
   const displayTasks = isExpanded ? tasks : tasks.slice(0, 3)
   const hasMore = tasks.length > 3
@@ -126,14 +114,12 @@ function TimelineCell({ tasks, monthKey, onTaskClick }) {
 export function TimelineView({ tasks, onTaskClick, selectedMonth }) {
   const months = getMonthColumns(selectedMonth)
   const groups = groupTasksByTag(tasks)
-
   const colCount = months.length || 1
 
   return (
     <div className="px-16 pb-8 overflow-x-auto">
       <div className="min-w-[800px]">
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          {/* Header Row */}
           <div
             className="border-b border-gray-200 bg-gray-50"
             style={{ display: 'grid', gridTemplateColumns: `200px repeat(${colCount}, 1fr)` }}
@@ -151,14 +137,12 @@ export function TimelineView({ tasks, onTaskClick, selectedMonth }) {
             ))}
           </div>
 
-          {/* Data Rows — show max 50 groups to avoid rendering explosion */}
           {groups.slice(0, 50).map((group) => (
             <div
               key={group.tag}
               className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition-colors"
               style={{ display: 'grid', gridTemplateColumns: `200px repeat(${colCount}, 1fr)` }}
             >
-              {/* Tag Label */}
               <div className="px-4 py-4 border-r border-gray-200 flex items-start">
                 <Badge
                   className="text-[9px] uppercase font-bold tracking-wider rounded border-0 whitespace-nowrap"
@@ -168,18 +152,13 @@ export function TimelineView({ tasks, onTaskClick, selectedMonth }) {
                 </Badge>
               </div>
 
-              {/* Month Cells */}
-              {months.map((month) => {
-                const tasksInMonth = getTasksInMonth(group.tasks, month.key)
-                return (
-                  <TimelineCell 
-                    key={month.key} 
-                    monthKey={month.key} 
-                    tasks={tasksInMonth} 
-                    onTaskClick={onTaskClick} 
-                  />
-                )
-              })}
+              {months.map((month) => (
+                <TimelineCell
+                  key={month.key}
+                  tasks={getTasksInMonth(group.tasks, month.key)}
+                  onTaskClick={onTaskClick}
+                />
+              ))}
             </div>
           ))}
 

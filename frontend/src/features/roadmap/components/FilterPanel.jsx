@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 
-// Custom Dropdown Component
 function Dropdown({ label, value, options, allLabel, onChange }) {
   const [isOpen, setIsOpen] = useState(false)
   const ref = useRef(null)

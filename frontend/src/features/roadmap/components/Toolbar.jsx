@@ -14,7 +14,6 @@ export function Toolbar({
   return (
     <div className={`px-16 pt-8 ${isFilterOpen ? 'pb-4' : 'pb-8'}`}>
       <div className="flex items-center gap-4">
-        {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -26,7 +25,6 @@ export function Toolbar({
           />
         </div>
 
-        {/* View Toggle & Filter */}
         <div className="flex items-center gap-2">
           <Button
             onClick={() => onViewChange('cards')}
