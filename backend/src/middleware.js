@@ -1,20 +1,6 @@
-/**
- * @module middleware
- * @description All Express middleware in one file.
- *
- * Exports:
- *   - ipWhitelist  — IP address guard (applied per-route group)
- *   - notFound     — 404 handler for unmatched routes
- *   - errorHandler — Global error catcher (must be last)
- */
-
 const { config, MESSAGES } = require('./config');
 const logger = require('./lib/Logger');
 const AppError = require('./lib/AppError');
-
-// ──────────────────────────────────────────────
-// IP Whitelist Guard
-// ──────────────────────────────────────────────
 
 function ipWhitelist(req, _res, next) {
   const clientIp = _extractIp(req);
@@ -61,17 +47,9 @@ function _ipToNum(ip) {
   }, 0);
 }
 
-// ──────────────────────────────────────────────
-// 404 Not Found Handler
-// ──────────────────────────────────────────────
-
 function notFound(req) {
   throw AppError.notFound(MESSAGES.ROUTE_NOT_FOUND(req.method, req.originalUrl));
 }
-
-// ──────────────────────────────────────────────
-// Global Error Handler (must have 4 params)
-// ──────────────────────────────────────────────
 
 function errorHandler(err, req, res, _next) {
   const statusCode = err instanceof AppError ? err.statusCode : 500;

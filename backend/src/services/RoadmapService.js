@@ -1,11 +1,3 @@
-/**
- * @module services/RoadmapService
- * @description THICK service — all business logic for roadmap stories.
- *
- * Fetches stories from Jira (all statuses, NOT just Done).
- * Falls back to seed data if Jira is not configured.
- */
-
 const jiraClient = require('../lib/JiraClient');
 const cache = require('./CacheService');
 const seedStories = require('../data/stories.seed');
@@ -13,15 +5,12 @@ const { STORY_STATUS, CACHE_KEYS } = require('../config');
 const logger = require('../lib/Logger');
 
 const CTX = 'RoadmapService';
-const MS_PER_DAY = 86_400_000;
 
-// Tag color palette (generated from tag name hash)
 const TAG_COLORS = [
   '#63b3ed', '#d69e2e', '#68d391', '#ed8936',
   '#ed64a6', '#9f7aea', '#f56565', '#4fd1c5',
 ];
 
-// Map Jira status names → our status constants
 const STATUS_MAP = {
   'to do': STORY_STATUS.PLANNED,
   'open': STORY_STATUS.PLANNED,
@@ -49,9 +38,25 @@ const STATUS_COLORS = {
   [STORY_STATUS.DONE]: '#48bb78',
 };
 
+const EPIC_FIELDS = [
+  'summary', 'description', 'status', 'assignee', 'reporter',
+  'duedate', 'created', 'components', 'labels',
+  'attachment', 'project', 'priority',
+];
+
+const CHILD_FIELDS = [
+  'summary', 'status', 'priority', 'assignee', 'issuetype',
+  'parent', 'customfield_10014', 'duedate', 'created',
+];
+
 const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
   'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+];
+
+const FULL_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 class RoadmapService {
@@ -78,17 +83,39 @@ class RoadmapService {
     const story = all.find(
       (s) => s.id.toUpperCase() === id.trim().toUpperCase()
     );
+    if (!story) return null;
 
-    if (story && jiraClient.isEnabled) {
+    if (jiraClient.isEnabled) {
       try {
         const changelog = await jiraClient.getIssueChangelog(story.id);
         story.activity = this._parseChangelog(changelog);
       } catch (err) {
         logger.error(`Failed to fetch changelog for ${story.id}: ${err.message}`, CTX);
       }
+
+      if (story.createdAt && !(story.activity || []).some((a) => a.action === 'Created')) {
+        story.activity = [
+          ...(story.activity || []),
+          {
+            action: 'Created',
+            user: story.reporter || 'Unknown User',
+            date: this._formatDate(story.createdAt),
+            timestamp: new Date(story.createdAt).getTime(),
+          },
+        ].sort((a, b) => b.timestamp - a.timestamp);
+      }
+
+      if (!Array.isArray(story.children)) {
+        try {
+          story.children = await this._fetchChildren(story.id);
+        } catch (err) {
+          logger.error(`Failed to fetch child work items for ${story.id}: ${err.message}`, CTX);
+          story.children = [];
+        }
+      }
     }
 
-    return story ? this._enrichDetail(story) : null;
+    return story;
   }
 
   async getAttachmentStream(attachmentId) {
@@ -99,12 +126,11 @@ class RoadmapService {
   }
 
   async _getStories(query = {}) {
-    const cacheKey = CACHE_KEYS.ALL_STORIES(`${query.month || ''}-${query.year || ''}`);
+    const cacheKey = CACHE_KEYS.ALL_STORIES(query.month || '');
     const cached = cache.get(cacheKey);
     if (cached) return cached;
 
     let stories;
-
     if (jiraClient.isEnabled) {
       stories = await this._fetchFromJira(query);
     } else {
@@ -118,53 +144,66 @@ class RoadmapService {
 
   async _fetchFromJira(query) {
     try {
-      let dateFilter = 'updated >= -180d'; // default to last 6 months
-      
-      const { month, year } = query;
-      let y, m;
+      const dateFilter = this._buildDateFilter(query);
+      const jql = `project = "IS" AND issuetype = Epic AND ${dateFilter} ORDER BY updated DESC`;
+      const issues = await jiraClient.searchIssues(jql, EPIC_FIELDS);
 
-      if (year && year !== 'All Years') {
-        y = parseInt(year);
-      }
-      if (month && month !== 'All Months') {
-        m = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].indexOf(month) + 1;
-      }
+      logger.info(`Fetched ${issues.length} epics from Jira (project IS)`, CTX);
+      const epics = issues.map((issue) => this._transformIssue(issue));
+      if (epics.length === 0) return epics;
 
-      if (y && m) {
-        const since = `${y}-${String(m).padStart(2, '0')}-01`;
-        const until = `${y}-${String(m).padStart(2, '0')}-31`;
-        dateFilter = `updated >= "${since}" AND updated <= "${until}"`;
-      } else if (y) {
-        const since = `${y}-01-01`;
-        const until = `${y}-12-31`;
-        dateFilter = `updated >= "${since}" AND updated <= "${until}"`;
-      } else if (m) {
-        const currYear = new Date().getFullYear();
-        const since = `${currYear}-${String(m).padStart(2, '0')}-01`;
-        const until = `${currYear}-${String(m).padStart(2, '0')}-31`;
-        dateFilter = `updated >= "${since}" AND updated <= "${until}"`;
+      try {
+        const keys = epics.map((e) => e.id).join(', ');
+        const childJql = `project = "IS" AND (parent IN (${keys}) OR "Epic Link" IN (${keys})) ORDER BY created ASC`;
+        const childIssues = await jiraClient.searchIssues(childJql, CHILD_FIELDS);
+        const children = childIssues.map((issue) => this._transformIssue(issue));
+
+        epics.forEach((epic) => {
+          epic.children = children.filter(
+            (child) => child.parentId === epic.id || child.epicLink === epic.id
+          );
+        });
+      } catch (err) {
+        logger.error(`Failed to fetch child work items: ${err.message}`, CTX);
+        epics.forEach((epic) => { epic.children = []; });
       }
 
-      // Fetch issues that are NOT Done and match the date filter
-      const jql = `statusCategory != Done AND ${dateFilter} ORDER BY updated DESC`;
-      const issues = await jiraClient.searchIssues(jql, [
-        'summary', 'description', 'status', 'assignee',
-        'duedate', 'created', 'components', 'labels',
-        'attachment', 'project', 'priority',
-      ]);
-
-      logger.info(`Fetched ${issues.length} roadmap issues from Jira`, CTX);
-      return issues.map((issue) => this._transformIssue(issue));
+      epics.forEach((epic) => { epic.progress = this._computeProgress(epic); });
+      return epics;
     } catch (err) {
       logger.error(`Jira fetch failed, falling back to mock: ${err.message}`, CTX);
       return seedStories;
     }
   }
 
+  _buildDateFilter({ month } = {}) {
+    const m = month && month !== 'All Months' ? FULL_MONTHS.indexOf(month) + 1 : 0;
+    if (!m) return 'updated >= -180d';
+
+    const year = new Date().getFullYear();
+    const mm = String(m).padStart(2, '0');
+    return `updated >= "${year}-${mm}-01" AND updated <= "${year}-${mm}-31"`;
+  }
+
+  async _fetchChildren(epicId) {
+    const jql = `project = "IS" AND (parent = "${epicId}" OR "Epic Link" = "${epicId}") ORDER BY created ASC`;
+    const issues = await jiraClient.searchIssues(jql, CHILD_FIELDS);
+    return issues.map((issue) => this._transformIssue(issue));
+  }
+
+  _computeProgress(epic) {
+    const children = epic.children || [];
+    if (children.length === 0) {
+      return epic.status === STORY_STATUS.DONE ? 100 : 0;
+    }
+    const done = children.filter((c) => c.status === STORY_STATUS.DONE).length;
+    return Math.round((done / children.length) * 100);
+  }
+
   _transformIssue(issue) {
     const { key, fields } = issue;
     const tag = this._extractTag(fields);
-    const mappedStatus = this._mapStatus(fields.status?.name);
+    const mappedStatus = this._mapStatus(fields.status);
     const createdDate = fields.created || null;
     const dueDate = fields.duedate || null;
 
@@ -176,22 +215,39 @@ class RoadmapService {
       description: this._extractDescription(fields.description),
       status: mappedStatus,
       statusColor: STATUS_COLORS[mappedStatus] || '#a0aec0',
+      priority: fields.priority?.name || '',
+      parentId: fields.parent?.key || null,
+      epicLink: fields.customfield_10014 || null,
+      reporter: fields.reporter?.displayName || null,
+      createdAt: createdDate,
       date: dueDate ? this._formatDate(dueDate) : this._formatDate(createdDate),
       startDate: createdDate?.split('T')[0] || '',
       endDate: dueDate || '',
-      images: (fields.attachment || []).filter(att => att.mimeType?.startsWith('image/')).map(att => ({
-        id: att.id,
-        url: `/api/v1/roadmap/attachment/${att.id}`,
-        filename: att.filename
-      })),
-      assignee: fields.assignee?.displayName || fields.project?.name || 'Unassigned',
+      images: (fields.attachment || [])
+        .filter((att) => att.mimeType?.startsWith('image/'))
+        .map((att) => ({
+          id: att.id,
+          url: `/api/v1/roadmap/attachment/${att.id}`,
+          filename: att.filename,
+        })),
+      assignee: fields.assignee?.displayName || 'Unassigned',
+      assigneeAvatarUrl: fields.assignee?.avatarUrls?.['24x24'] || fields.assignee?.avatarUrls?.['48x48'] || null,
+      issueType: fields.issuetype?.name || '',
+      issueTypeIconUrl: fields.issuetype?.iconUrl || null,
+      priorityIconUrl: fields.priority?.iconUrl || null,
       dueDate: dueDate ? this._formatDate(dueDate) : '-',
       activity: [],
     };
   }
 
-  _mapStatus(jiraStatusName = '') {
-    return STATUS_MAP[jiraStatusName.toLowerCase()] || STORY_STATUS.PLANNED;
+  _mapStatus(statusField) {
+    const name = (statusField?.name || '').toLowerCase();
+    if (STATUS_MAP[name]) return STATUS_MAP[name];
+
+    const category = statusField?.statusCategory?.key;
+    if (category === 'done') return STORY_STATUS.DONE;
+    if (category === 'indeterminate') return STORY_STATUS.IN_PROGRESS;
+    return STORY_STATUS.PLANNED;
   }
 
   _extractTag(fields) {
@@ -226,22 +282,20 @@ class RoadmapService {
   _parseChangelog(changelogValues) {
     if (!Array.isArray(changelogValues)) return [];
     const activities = [];
-    
+
     for (const log of changelogValues) {
-      const statusItem = log.items?.find(i => i.field === 'status');
+      const statusItem = log.items?.find((i) => i.field === 'status');
       if (statusItem) {
         const date = new Date(log.created);
-        const dateStr = `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
-        
         activities.push({
           action: `Changed status from ${statusItem.fromString} to ${statusItem.toString}`,
           user: log.author?.displayName || 'Unknown User',
-          date: dateStr,
+          date: `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`,
           timestamp: date.getTime(),
         });
       }
     }
-    
+
     return activities.sort((a, b) => b.timestamp - a.timestamp);
   }
 
@@ -288,19 +342,7 @@ class RoadmapService {
   }
 
   _toListItems(stories) {
-    return stories.map(({ activity, dueDate, ...rest }) => rest);
-  }
-
-  _enrichDetail(story) {
-    return {
-      ...story,
-      durationDays: Math.ceil(
-        (new Date(story.endDate) - new Date(story.startDate)) / MS_PER_DAY
-      ),
-      isOverdue: story.status !== STORY_STATUS.DONE && new Date(story.endDate) < new Date(),
-      activityCount: story.activity?.length ?? 0,
-      lastActivity: story.activity?.[0] ?? null,
-    };
+    return stories.map(({ activity, children, ...rest }) => rest);
   }
 }
 

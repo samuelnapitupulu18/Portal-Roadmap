@@ -1,9 +1,3 @@
-/**
- * @module routes
- * @description THIN route layer — maps URLs to service calls.
- * No business logic here. Just: extract params → call service → send response.
- */
-
 const { Router } = require('express');
 const { ipWhitelist } = require('./middleware');
 const roadmapService = require('./services/RoadmapService');
@@ -13,7 +7,6 @@ const { MESSAGES, APP_NAME } = require('./config');
 
 const router = Router();
 
-/** Wraps sync/async handlers to forward thrown errors to Express. */
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 router.get('/health', (_req, res) => {
@@ -61,7 +54,7 @@ router.get('/roadmap/attachment/:id', ipWhitelist, wrap(async (req, res) => {
 
   try {
     const { stream, contentType, contentLength } = await roadmapService.getAttachmentStream(id);
-    
+
     if (contentType) res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);
     res.setHeader('Cache-Control', 'public, max-age=86400');

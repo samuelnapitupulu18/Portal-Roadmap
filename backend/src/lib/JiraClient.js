@@ -1,9 +1,3 @@
-/**
- * @module lib/JiraClient
- * @description HTTP client for Jira Cloud REST API.
- * Handles basic auth, pagination, and common request formatting.
- */
-
 const axios = require('axios');
 const { config } = require('../config');
 const logger = require('./Logger');
@@ -35,19 +29,6 @@ class JiraClient {
     return this._enabled;
   }
 
-  async getUsers() {
-    if (!this._enabled) return [];
-    try {
-      const { data } = await this._http.get('/rest/api/3/users/search', {
-        params: { maxResults: 1000, startAt: 0 },
-      });
-      return data;
-    } catch (err) {
-      logger.error(`Get users failed: ${err.message}`, CTX);
-      throw err;
-    }
-  }
-
   async searchIssues(jql, fields = ['*all']) {
     if (!this._enabled) return [];
 
@@ -63,8 +44,7 @@ class JiraClient {
 
         const { data } = await this._http.get('/rest/api/3/search/jql', { params });
 
-        const issues = data.issues || [];
-        allIssues = allIssues.concat(issues);
+        allIssues = allIssues.concat(data.issues || []);
         nextPageToken = data.nextPageToken || null;
       } while (nextPageToken);
 

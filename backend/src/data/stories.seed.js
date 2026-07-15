@@ -1,10 +1,3 @@
-/**
- * @module data/stories.seed
- * @description Seed data for roadmap stories.
- * Separated from service layer (SRP). When Jira API is integrated,
- * replace this import in RoadmapService with the API call.
- */
-
 const { STORY_STATUS } = require('../config');
 
 module.exports = [
@@ -16,6 +9,7 @@ module.exports = [
     description: "Currently there's no centralized way to track and manage enterprise-level invoice disputes.",
     status: STORY_STATUS.PLANNED,
     statusColor: '#ed8936',
+    progress: 0,
     date: '24 Apr 2026',
     startDate: '2026-04-01',
     endDate: '2026-04-30',
@@ -23,8 +17,8 @@ module.exports = [
     assignee: 'TRACK2TICKET',
     dueDate: '24 Apr 2026',
     activity: [
-      { action: 'Changed status from In Progress to Testing', user: 'Sean Dore', date: '12 Mar 2026' },
-      { action: 'Changed status from Planned to In Progress', user: 'Sean Dore', date: '1 Feb 2026' },
+      { action: 'Changed status from In Progress to In Review', user: 'Sean Dore', date: '12 Mar 2026' },
+      { action: 'Changed status from To Do to In Progress', user: 'Sean Dore', date: '1 Feb 2026' },
     ],
   },
   {
@@ -35,6 +29,7 @@ module.exports = [
     description: 'Users are unaware of new features and improvements.',
     status: STORY_STATUS.IN_PROGRESS,
     statusColor: '#3182ce',
+    progress: 50,
     date: '24 Mei 2026',
     startDate: '2026-05-01',
     endDate: '2026-05-31',
@@ -42,7 +37,7 @@ module.exports = [
     assignee: 'IS-FINANCE MAN',
     dueDate: '24 Mei 2026',
     activity: [
-      { action: 'Changed status from Planned to In Progress', user: 'Sean Dore', date: '1 Apr 2026' },
+      { action: 'Changed status from To Do to In Progress', user: 'Sean Dore', date: '1 Apr 2026' },
     ],
   },
   {
@@ -53,6 +48,7 @@ module.exports = [
     description: 'Customer portal lacks functionality for users to manage subscriptions.',
     status: STORY_STATUS.IN_PROGRESS,
     statusColor: '#3182ce',
+    progress: 50,
     date: '29 Mei 2026',
     startDate: '2026-05-10',
     endDate: '2026-06-15',
@@ -60,7 +56,7 @@ module.exports = [
     assignee: 'FORM REGISTRASI IS5',
     dueDate: '29 Mei 2026',
     activity: [
-      { action: 'Changed status from Planned to In Progress', user: 'Sean Dore', date: '10 Mar 2026' },
+      { action: 'Changed status from To Do to In Progress', user: 'Sean Dore', date: '10 Mar 2026' },
     ],
   },
   {
@@ -71,6 +67,7 @@ module.exports = [
     description: '',
     status: STORY_STATUS.PLANNED,
     statusColor: '#ed8936',
+    progress: 0,
     date: '26 Apr 2026',
     startDate: '2026-04-10',
     endDate: '2026-05-15',
@@ -78,8 +75,8 @@ module.exports = [
     assignee: 'IS - TOP MANAGEMENT',
     dueDate: '26 Apr 2026',
     activity: [
-      { action: 'Changed status from In Progress to Testing', user: 'Sean Dore', date: '15 Mar 2026' },
-      { action: 'Changed status from Planned to In Progress', user: 'Sean Dore', date: '1 Feb 2026' },
+      { action: 'Changed status from In Progress to In Review', user: 'Sean Dore', date: '15 Mar 2026' },
+      { action: 'Changed status from To Do to In Progress', user: 'Sean Dore', date: '1 Feb 2026' },
     ],
   },
   {
@@ -90,6 +87,7 @@ module.exports = [
     description: 'Funnel to display Opportunity Count and Expected Amount.',
     status: STORY_STATUS.DONE,
     statusColor: '#48bb78',
+    progress: 100,
     date: '28 Aug 2026',
     startDate: '2026-07-01',
     endDate: '2026-08-28',
@@ -97,9 +95,9 @@ module.exports = [
     assignee: 'TRACK2TICKET',
     dueDate: '28 Aug 2026',
     activity: [
-      { action: 'Changed status from Testing to Done', user: 'Sean Dore', date: '28 Aug 2026' },
-      { action: 'Changed status from In Progress to Testing', user: 'Sean Dore', date: '15 Jul 2026' },
-      { action: 'Changed status from Planned to In Progress', user: 'Sean Dore', date: '1 Jul 2026' },
+      { action: 'Changed status from In Review to Done', user: 'Sean Dore', date: '28 Aug 2026' },
+      { action: 'Changed status from In Progress to In Review', user: 'Sean Dore', date: '15 Jul 2026' },
+      { action: 'Changed status from To Do to In Progress', user: 'Sean Dore', date: '1 Jul 2026' },
     ],
   },
   {
@@ -110,6 +108,7 @@ module.exports = [
     description: '-',
     status: STORY_STATUS.DONE,
     statusColor: '#48bb78',
+    progress: 100,
     date: '24 Jun 2026',
     startDate: '2026-06-01',
     endDate: '2026-06-24',
@@ -117,9 +116,9 @@ module.exports = [
     assignee: 'TTB DIGITAL',
     dueDate: '24 Jun 2026',
     activity: [
-      { action: 'Changed status from Testing to Done', user: 'Sean Dore', date: '24 Jun 2026' },
-      { action: 'Changed status from In Progress to Testing', user: 'Sean Dore', date: '10 Jun 2026' },
-      { action: 'Changed status from Planned to In Progress', user: 'Sean Dore', date: '1 Jun 2026' },
+      { action: 'Changed status from In Review to Done', user: 'Sean Dore', date: '24 Jun 2026' },
+      { action: 'Changed status from In Progress to In Review', user: 'Sean Dore', date: '10 Jun 2026' },
+      { action: 'Changed status from To Do to In Progress', user: 'Sean Dore', date: '1 Jun 2026' },
     ],
   },
 ];

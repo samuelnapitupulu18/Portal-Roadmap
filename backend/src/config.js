@@ -1,23 +1,13 @@
-/**
- * @module config
- * @description Centralized configuration + application constants.
- * Validates environment at startup (fail-fast).
- */
-
 const dotenv = require('dotenv');
 const logger = require('./lib/Logger');
 
 dotenv.config();
 
-// ──────────────────────────────────────────────
-// Constants
-// ──────────────────────────────────────────────
-
 const STORY_STATUS = Object.freeze({
-  PLANNED: 'Planned',
+  PLANNED: 'To Do',
   IN_PROGRESS: 'In Progress',
-  TESTING: 'Testing',
-  DONE: 'Released / Done',
+  TESTING: 'In Review',
+  DONE: 'Done',
 });
 
 const MESSAGES = Object.freeze({
@@ -33,10 +23,6 @@ const CACHE_KEYS = Object.freeze({
 });
 
 const APP_NAME = 'portal-nusa-backend';
-
-// ──────────────────────────────────────────────
-// Environment Config
-// ──────────────────────────────────────────────
 
 function parseList(value, fallback) {
   return (value || fallback).split(',').map((s) => s.trim());
@@ -57,10 +43,6 @@ const config = Object.freeze({
   corsAllowedOrigins: parseList(process.env.CORS_ALLOWED_ORIGINS, 'http://localhost:5173'),
   ipWhitelist: parseList(process.env.ALLOWED_IP_WHITELIST, '127.0.0.1,::1'),
 });
-
-// ──────────────────────────────────────────────
-// Validation (Fail-Fast)
-// ──────────────────────────────────────────────
 
 (function validate() {
   const errors = [];

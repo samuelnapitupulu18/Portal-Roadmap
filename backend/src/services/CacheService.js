@@ -1,8 +1,3 @@
-/**
- * @module services/CacheService
- * @description In-memory cache with TTL expiration.
- */
-
 const { config } = require('../config');
 const logger = require('../lib/Logger');
 
@@ -31,11 +26,6 @@ class CacheService {
   set(key, data) {
     this._store.set(key, { data, expiresAt: Date.now() + this._ttlMs });
     logger.debug(`SET: ${key} (TTL: ${config.cacheTtlSeconds}s)`, CTX);
-  }
-
-  clear() {
-    this._store.clear();
-    logger.info('Cache cleared', CTX);
   }
 }
 
