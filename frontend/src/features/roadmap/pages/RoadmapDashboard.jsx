@@ -1,0 +1,117 @@
+import React from 'react'
+import { useRoadmapData } from '@/features/roadmap/api/useRoadmapData'
+import { HeroSection } from '@/features/roadmap/components/HeroSection'
+import { StatsSummary } from '@/features/roadmap/components/StatsSummary'
+import { Toolbar } from '@/features/roadmap/components/Toolbar'
+import { TaskCard } from '@/features/roadmap/components/TaskCard'
+import { FilterPanel } from '@/features/roadmap/components/FilterPanel'
+import { TimelineView } from '@/features/roadmap/components/TimelineView'
+import { DetailPanel } from '@/features/roadmap/components/DetailPanel'
+
+export function RoadmapDashboard({ onNavigate }) {
+  const {
+    // Data
+    tasks,
+    stats,
+    filterOptions,
+    isLoading,
+    error,
+
+    // View
+    activeView,
+    setActiveView,
+
+    // Filters
+    isFilterOpen,
+    toggleFilter,
+    selectedStatus,
+    setSelectedStatus,
+    selectedProject,
+    setSelectedProject,
+    selectedMonth,
+    setSelectedMonth,
+    searchQuery,
+    setSearchQuery,
+
+    // Detail Panel
+    selectedTask,
+    isDetailOpen,
+    handleTaskClick,
+    handleDetailClose,
+  } = useRoadmapData()
+
+  return (
+    <div className="min-h-screen bg-[#f2fcf5] font-sans">
+      <main>
+        <HeroSection onNavigate={onNavigate} />
+        <StatsSummary stats={stats} />
+        <div className="max-w-7xl mx-auto pb-16">
+          <Toolbar
+            activeView={activeView}
+            onViewChange={setActiveView}
+            isFilterOpen={isFilterOpen}
+            onFilterToggle={toggleFilter}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            totalItems={tasks.length}
+          />
+
+          <FilterPanel
+            isOpen={isFilterOpen}
+            statusOptions={filterOptions?.statuses || []}
+            projectOptions={filterOptions?.projects || []}
+            selectedStatus={selectedStatus}
+            onStatusChange={setSelectedStatus}
+            selectedProject={selectedProject}
+            onProjectChange={setSelectedProject}
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+          />
+
+          <div className="px-16 mb-4 text-sm font-medium text-gray-400">
+            {tasks.length} work items
+          </div>
+
+          {activeView === 'cards' && (
+            <div className="px-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {isLoading && (
+                <div className="col-span-3 py-16 text-center text-gray-400">
+                  <p className="text-lg font-medium">Loading stories...</p>
+                </div>
+              )}
+              {error && !isLoading && (
+                <div className="col-span-3 py-16 text-center text-red-500">
+                  <p className="text-lg font-medium">Error loading data</p>
+                  <p className="text-sm mt-1">{error}</p>
+                </div>
+              )}
+              {!isLoading && !error && tasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  {...task}
+                  onClick={() => handleTaskClick(task)}
+                />
+              ))}
+              {!isLoading && !error && tasks.length === 0 && (
+                <div className="col-span-3 py-16 text-center text-gray-400">
+                  <p className="text-lg font-medium">No items found</p>
+                  <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeView === 'timeline' && !isLoading && !error && (
+            <TimelineView tasks={tasks} onTaskClick={handleTaskClick} selectedMonth={selectedMonth} />
+          )}
+        </div>
+      </main>
+
+      <DetailPanel
+        task={selectedTask}
+        isOpen={isDetailOpen}
+        onClose={handleDetailClose}
+      />
+    </div>
+  )
+}
