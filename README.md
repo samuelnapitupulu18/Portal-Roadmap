@@ -17,15 +17,13 @@ npm install
 npm start
 ```
 
-Buat file `backend/.env` dengan isi:
+Salin `backend/.env.example` menjadi `backend/.env` lalu isi kredensial Jira:
 
-```
-JIRA_BASE_URL=https://<workspace>.atlassian.net
-JIRA_API_EMAIL=<email>
-JIRA_API_TOKEN=<api-token>
+```bash
+copy .env.example .env
 ```
 
-Tanpa kredensial Jira, backend berjalan dengan data mock.
+Tanpa kredensial Jira, backend berjalan dengan data mock. File `.env` berisi rahasia dan tidak boleh di-commit (sudah masuk `.gitignore`).
 
 ### Frontend
 
@@ -36,6 +34,11 @@ npm run dev
 ```
 
 Buka `http://localhost:5173`.
+
+## Deploy
+
+1. Backend: salin `.env.example` menjadi `.env` di server, isi nilainya, lalu jalankan `npm start`.
+2. Frontend: jalankan `npm run build`, lalu serve isi folder `frontend/dist/` (folder ini hasil build, tidak di-commit — sudah masuk `.gitignore`).
 
 ## API
 
