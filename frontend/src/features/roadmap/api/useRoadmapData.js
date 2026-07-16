@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/v1`
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+const FETCH_OPTS = { headers: { 'x-api-key': API_KEY } }
 
 export function useRoadmapData() {
   const [activeView, setActiveView] = useState('cards')
@@ -31,7 +33,7 @@ export function useRoadmapData() {
         if (selectedMonth && selectedMonth !== 'All Months') queryParams.append('month', selectedMonth)
         if (searchQuery) queryParams.append('search', searchQuery)
 
-        const response = await fetch(`${API_BASE_URL}/roadmap/stories?${queryParams.toString()}`)
+        const response = await fetch(`${API_BASE_URL}/roadmap/stories?${queryParams.toString()}`, FETCH_OPTS)
         if (!response.ok) throw new Error('Failed to fetch stories')
 
         const result = await response.json()
@@ -64,7 +66,7 @@ export function useRoadmapData() {
 
   const fetchTaskDetail = useCallback(async (task) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/roadmap/stories/${task.id}`)
+      const response = await fetch(`${API_BASE_URL}/roadmap/stories/${task.id}`, FETCH_OPTS)
       if (!response.ok) throw new Error('Failed to fetch story details')
       const result = await response.json()
       return result.data

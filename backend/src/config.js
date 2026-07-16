@@ -15,7 +15,7 @@ const MESSAGES = Object.freeze({
   STORY_DETAIL_OK: 'Story detail retrieved successfully',
   STORY_NOT_FOUND: (id) => `Story with ID "${id}" not found`,
   ROUTE_NOT_FOUND: (method, url) => `Cannot ${method} ${url}`,
-  IP_DENIED: (ip) => `Access denied. IP ${ip} not allowed.`,
+  API_KEY_DENIED: 'Access denied. Invalid or missing API key.',
 });
 
 const CACHE_KEYS = Object.freeze({
@@ -41,7 +41,7 @@ const config = Object.freeze({
 
   cacheTtlSeconds: parseInt(process.env.CACHE_TTL_SECONDS || '300', 10),
   corsAllowedOrigins: parseList(process.env.CORS_ALLOWED_ORIGINS, 'http://localhost:5173'),
-  ipWhitelist: parseList(process.env.ALLOWED_IP_WHITELIST, '127.0.0.1,::1'),
+  apiKey: process.env.API_KEY || '',
 });
 
 (function validate() {
@@ -52,8 +52,6 @@ const config = Object.freeze({
     errors.push(`CACHE_TTL_SECONDS must be >= 0, got "${process.env.CACHE_TTL_SECONDS}"`);
   if (config.corsAllowedOrigins.length === 0)
     errors.push('CORS_ALLOWED_ORIGINS must have at least one origin');
-  if (config.ipWhitelist.length === 0)
-    errors.push('ALLOWED_IP_WHITELIST must have at least one IP');
 
   if (errors.length) {
     errors.forEach((e) => logger.error(e, 'Config'));

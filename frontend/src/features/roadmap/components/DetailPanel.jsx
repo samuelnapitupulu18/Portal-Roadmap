@@ -3,6 +3,9 @@ import { X, ArrowLeft, Calendar, Circle, FileText, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+
+const attachmentUrl = (path) => `${API_BASE}${path}${API_KEY ? `?api_key=${API_KEY}` : ''}`
 
 const isDone = (status = '') => status.toLowerCase().includes('done')
 
@@ -107,14 +110,14 @@ export function DetailPanel({ task, isOpen, onClose, onChildClick, onBack, canGo
                   {task.images.map((img, idx) => (
                     <a
                       key={idx}
-                      href={`${API_BASE}${img.url}`}
+                      href={attachmentUrl(img.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="shrink-0 block w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center border border-gray-200 hover:border-blue-400 transition-colors"
                       title={img.filename}
                     >
                       <img
-                        src={`${API_BASE}${img.url}`}
+                        src={attachmentUrl(img.url)}
                         alt={img.filename}
                         className="w-full h-full object-cover"
                       />

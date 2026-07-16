@@ -37,8 +37,10 @@ Buka `http://localhost:5173`.
 
 ## Deploy
 
-1. Backend: salin `backend/.env.example` menjadi `.env` di server, isi nilainya, lalu jalankan `npm start`.
-2. Frontend: salin `frontend/.env.example` menjadi `.env`, isi `VITE_API_BASE_URL` dengan alamat backend yang bisa diakses browser pengguna, jalankan `npm run build`, lalu serve isi folder `frontend/dist/` (folder ini hasil build, tidak di-commit — sudah masuk `.gitignore`).
+1. Backend: salin `backend/.env.example` menjadi `.env` di server, isi nilainya (termasuk `API_KEY`), lalu jalankan `npm start`.
+2. Frontend: salin `frontend/.env.example` menjadi `.env`, isi `VITE_API_BASE_URL` dengan alamat backend yang bisa diakses browser pengguna dan `VITE_API_KEY` dengan nilai yang sama seperti `API_KEY` backend, jalankan `npm run build`, lalu serve isi folder `frontend/dist/` (folder ini hasil build, tidak di-commit — sudah masuk `.gitignore`).
+
+API dilindungi API key sederhana: setiap request harus menyertakan header `x-api-key` (atau query `?api_key=`) yang cocok dengan `API_KEY` di backend. Jika `API_KEY` dikosongkan, API terbuka tanpa auth.
 
 ## API
 

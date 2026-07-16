@@ -18,7 +18,7 @@ app.use(`/${config.apiPrefix}`, routes);
 app.use(notFound);
 app.use(errorHandler);
 
-const { port, apiPrefix, nodeEnv, corsAllowedOrigins, ipWhitelist } = config;
+const { port, apiPrefix, nodeEnv, corsAllowedOrigins, apiKey } = config;
 
 const server = app.listen(port, () => {
   logger.info(`${APP_NAME} started`, 'Bootstrap');
@@ -26,7 +26,7 @@ const server = app.listen(port, () => {
   logger.info(`Server      : http://localhost:${port}/${apiPrefix}`, 'Bootstrap');
   logger.info(`Health      : http://localhost:${port}/${apiPrefix}/health`, 'Bootstrap');
   logger.info(`CORS Origins: ${corsAllowedOrigins.join(', ')}`, 'Bootstrap');
-  logger.info(`IP Whitelist: ${ipWhitelist.join(', ')}`, 'Bootstrap');
+  logger.info(`API Key Auth: ${apiKey ? 'enabled' : 'DISABLED (API_KEY not set)'}`, 'Bootstrap');
 });
 
 function shutdown(signal) {

@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { ipWhitelist } = require('./middleware');
+const { apiKeyGuard } = require('./middleware');
 const roadmapService = require('./services/RoadmapService');
 
 const AppError = require('./lib/AppError');
@@ -18,7 +18,7 @@ router.get('/health', (_req, res) => {
   });
 });
 
-router.get('/roadmap/stories', ipWhitelist, wrap(async (req, res) => {
+router.get('/roadmap/stories', apiKeyGuard, wrap(async (req, res) => {
   const data = await roadmapService.findAll({
     status: req.query.status || '',
     project: req.query.project || '',
@@ -34,7 +34,7 @@ router.get('/roadmap/stories', ipWhitelist, wrap(async (req, res) => {
   });
 }));
 
-router.get('/roadmap/stories/:id', ipWhitelist, wrap(async (req, res) => {
+router.get('/roadmap/stories/:id', apiKeyGuard, wrap(async (req, res) => {
   const data = await roadmapService.findOne(req.params.id);
 
   if (!data) {
@@ -49,7 +49,7 @@ router.get('/roadmap/stories/:id', ipWhitelist, wrap(async (req, res) => {
   });
 }));
 
-router.get('/roadmap/attachment/:id', ipWhitelist, wrap(async (req, res) => {
+router.get('/roadmap/attachment/:id', apiKeyGuard, wrap(async (req, res) => {
   const { id } = req.params;
 
   try {
