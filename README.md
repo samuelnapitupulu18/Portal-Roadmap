@@ -37,8 +37,8 @@ Buka `http://localhost:5173`.
 
 ## Deploy
 
-1. Backend: salin `.env.example` menjadi `.env` di server, isi nilainya, lalu jalankan `npm start`.
-2. Frontend: jalankan `npm run build`, lalu serve isi folder `frontend/dist/` (folder ini hasil build, tidak di-commit — sudah masuk `.gitignore`).
+1. Backend: salin `backend/.env.example` menjadi `.env` di server, isi nilainya, lalu jalankan `npm start`.
+2. Frontend: salin `frontend/.env.example` menjadi `.env`, isi `VITE_API_BASE_URL` dengan alamat backend yang bisa diakses browser pengguna, jalankan `npm run build`, lalu serve isi folder `frontend/dist/` (folder ini hasil build, tidak di-commit — sudah masuk `.gitignore`).
 
 ## API
 

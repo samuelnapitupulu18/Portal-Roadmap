@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 
-const API_BASE_URL = 'http://localhost:3001/api/v1'
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/v1`
 
 export function useRoadmapData() {
   const [activeView, setActiveView] = useState('cards')
