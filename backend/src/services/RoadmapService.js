@@ -41,12 +41,12 @@ const STATUS_COLORS = {
 const EPIC_FIELDS = [
   'summary', 'description', 'status', 'assignee', 'reporter',
   'duedate', 'created', 'components', 'labels',
-  'attachment', 'project', 'priority',
+  'attachment', 'project', 'priority', 'resolutiondate',
 ];
 
 const CHILD_FIELDS = [
   'summary', 'status', 'priority', 'assignee', 'issuetype',
-  'parent', 'customfield_10014', 'duedate', 'created',
+  'parent', 'customfield_10014', 'duedate', 'created', 'resolutiondate',
 ];
 
 const MONTH_NAMES = [
@@ -54,20 +54,15 @@ const MONTH_NAMES = [
   'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
 ];
 
-const FULL_MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
 class RoadmapService {
   async findAll(query = {}) {
     const start = Date.now();
-    const all = await this._getStories(query);
+    const all = await this._getStories();
     const filtered = this._applyFilters(all, query);
 
     return {
       summary: this._computeSummary(all),
-      filterOptions: this._extractFilterOptions(all),
+      filterOptions: this._computeFilterOptions(all),
       stories: this._toListItems(filtered),
       meta: {
         total: all.length,
@@ -125,26 +120,60 @@ class RoadmapService {
     return jiraClient.getAttachmentStream(attachmentId);
   }
 
-  async _getStories(query = {}) {
-    const cacheKey = CACHE_KEYS.ALL_STORIES(query.month || '');
+  async _getStories() {
+    const cacheKey = CACHE_KEYS.ALL_STORIES;
     const cached = cache.get(cacheKey);
     if (cached) return cached;
 
     let stories;
     if (jiraClient.isEnabled) {
-      stories = await this._fetchFromJira(query);
+      stories = await this._fetchFromJira();
     } else {
       stories = seedStories;
       logger.debug('Using mock data (Jira not configured)', CTX);
     }
 
+    stories = this._withDerivedFields(stories);
+
     cache.set(cacheKey, stories);
     return stories;
   }
 
-  async _fetchFromJira(query) {
+  _withDerivedFields(stories) {
+    return stories.map((s) => {
+      const effectiveMonthKey = this._effectiveMonthKey(s);
+      return {
+        ...s,
+        effectiveMonthKey,
+        expectedLabel: effectiveMonthKey ? this._formatMonthLabel(effectiveMonthKey) : null,
+        completedAtLabel: s.status === STORY_STATUS.DONE && s.completedAt
+          ? this._formatDate(s.completedAt)
+          : null,
+      };
+    });
+  }
+
+  _currentMonthKey() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  _effectiveMonthKey(story) {
+    if (story.status === STORY_STATUS.DONE) {
+      const anchor = story.completedAt || story.endDate || story.startDate || '';
+      return anchor ? anchor.slice(0, 7) : null;
+    }
+    return this._currentMonthKey();
+  }
+
+  _formatMonthLabel(monthKey) {
+    const [y, m] = monthKey.split('-').map(Number);
+    return `${MONTH_NAMES[m - 1]} ${y}`;
+  }
+
+  async _fetchFromJira() {
     try {
-      const dateFilter = this._buildDateFilter(query);
+      const dateFilter = this._buildDateFilter();
       const jql = `project = "IS" AND issuetype = Epic AND ${dateFilter} ORDER BY updated DESC`;
       const issues = await jiraClient.searchIssues(jql, EPIC_FIELDS);
 
@@ -176,13 +205,10 @@ class RoadmapService {
     }
   }
 
-  _buildDateFilter({ month } = {}) {
-    const m = month && month !== 'All Months' ? FULL_MONTHS.indexOf(month) + 1 : 0;
-    if (!m) return 'updated >= -180d';
-
-    const year = new Date().getFullYear();
-    const mm = String(m).padStart(2, '0');
-    return `updated >= "${year}-${mm}-01" AND updated <= "${year}-${mm}-31"`;
+  _buildDateFilter() {
+    // 400d covers the 12-month Release Date window (_bucketByReleaseDate) with margin,
+    // since Jira's `updated` timestamp can lag an epic's actual resolutiondate slightly.
+    return 'updated >= -400d';
   }
 
   async _fetchChildren(epicId) {
@@ -206,6 +232,9 @@ class RoadmapService {
     const mappedStatus = this._mapStatus(fields.status);
     const createdDate = fields.created || null;
     const dueDate = fields.duedate || null;
+    const completedAt = mappedStatus === STORY_STATUS.DONE
+      ? (fields.resolutiondate || dueDate || createdDate)
+      : null;
 
     return {
       id: key,
@@ -223,6 +252,7 @@ class RoadmapService {
       date: dueDate ? this._formatDate(dueDate) : this._formatDate(createdDate),
       startDate: createdDate?.split('T')[0] || '',
       endDate: dueDate || '',
+      completedAt: completedAt?.split('T')[0] || '',
       images: (fields.attachment || [])
         .filter((att) => att.mimeType?.startsWith('image/'))
         .map((att) => ({
@@ -299,16 +329,23 @@ class RoadmapService {
     return activities.sort((a, b) => b.timestamp - a.timestamp);
   }
 
-  _applyFilters(stories, { status, project, search }) {
+  _applyFilters(stories, { status, project, search, month } = {}) {
     let result = stories;
-    if (status) {
-      const s = status.toLowerCase();
-      result = result.filter((r) => r.status.toLowerCase() === s);
+
+    const statuses = [].concat(status || []).filter(Boolean).map((s) => s.toLowerCase());
+    if (statuses.length) {
+      result = result.filter((r) => statuses.includes(r.status.toLowerCase()));
     }
-    if (project) {
-      const p = project.toLowerCase();
-      result = result.filter((r) => r.tag.toLowerCase() === p);
+
+    const categories = [].concat(project || []).filter(Boolean).map((p) => p.toLowerCase());
+    if (categories.length) {
+      result = result.filter((r) => categories.includes(r.tag.toLowerCase()));
     }
+
+    if (month) {
+      result = result.filter((r) => r.effectiveMonthKey === month);
+    }
+
     if (search) {
       const q = search.toLowerCase().trim();
       result = result.filter((r) => this._searchText(r).includes(q));
@@ -334,11 +371,50 @@ class RoadmapService {
     };
   }
 
-  _extractFilterOptions(stories) {
+  _computeFilterOptions(stories) {
     return {
-      statuses: [...new Set(stories.map((s) => s.status))].sort(),
-      projects: [...new Set(stories.map((s) => s.tag))].sort(),
+      statuses: this._bucketByStatus(stories),
+      categories: this._bucketByCategory(stories),
+      releaseDates: this._bucketByReleaseDate(stories),
     };
+  }
+
+  _bucketByStatus(stories) {
+    return [STORY_STATUS.PLANNED, STORY_STATUS.IN_PROGRESS, STORY_STATUS.TESTING, STORY_STATUS.DONE]
+      .map((status) => ({
+        value: status,
+        label: status,
+        color: STATUS_COLORS[status],
+        count: stories.filter((s) => s.status === status).length,
+      }));
+  }
+
+  _bucketByCategory(stories) {
+    const counts = new Map();
+    const colors = new Map();
+    stories.forEach((s) => {
+      counts.set(s.tag, (counts.get(s.tag) || 0) + 1);
+      colors.set(s.tag, s.tagColor);
+    });
+    return [...counts.entries()]
+      .map(([tag, count]) => ({ value: tag, label: tag, color: colors.get(tag), count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  _bucketByReleaseDate(stories) {
+    const now = new Date();
+    const buckets = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      buckets.push({ value: key, label: this._formatMonthLabel(key), count: 0 });
+    }
+    const byKey = new Map(buckets.map((b) => [b.value, b]));
+    stories.forEach((s) => {
+      const bucket = byKey.get(s.effectiveMonthKey);
+      if (bucket) bucket.count += 1;
+    });
+    return buckets;
   }
 
   _toListItems(stories) {

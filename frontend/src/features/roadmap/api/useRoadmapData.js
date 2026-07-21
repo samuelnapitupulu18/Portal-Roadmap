@@ -5,17 +5,14 @@ const API_KEY = import.meta.env.VITE_API_KEY || ''
 const FETCH_OPTS = { headers: { 'x-api-key': API_KEY } }
 
 export function useRoadmapData() {
-  const [activeView, setActiveView] = useState('cards')
-
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [selectedStatus, setSelectedStatus] = useState('')
-  const [selectedProject, setSelectedProject] = useState('')
-  const [selectedMonth, setSelectedMonth] = useState('')
+  const [selectedStatuses, setSelectedStatuses] = useState([])
+  const [selectedCategories, setSelectedCategories] = useState([])
+  const [selectedReleaseDate, setSelectedReleaseDate] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
   const [tasks, setTasks] = useState([])
   const [stats, setStats] = useState([])
-  const [filterOptions, setFilterOptions] = useState({ statuses: [], projects: [] })
+  const [filterOptions, setFilterOptions] = useState({ statuses: [], categories: [], releaseDates: [] })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -28,9 +25,9 @@ export function useRoadmapData() {
       setIsLoading(true)
       try {
         const queryParams = new URLSearchParams()
-        if (selectedStatus) queryParams.append('status', selectedStatus)
-        if (selectedProject) queryParams.append('project', selectedProject)
-        if (selectedMonth && selectedMonth !== 'All Months') queryParams.append('month', selectedMonth)
+        selectedStatuses.forEach((s) => queryParams.append('status', s))
+        selectedCategories.forEach((c) => queryParams.append('project', c))
+        if (selectedReleaseDate) queryParams.append('month', selectedReleaseDate)
         if (searchQuery) queryParams.append('search', searchQuery)
 
         const response = await fetch(`${API_BASE_URL}/roadmap/stories?${queryParams.toString()}`, FETCH_OPTS)
@@ -62,7 +59,7 @@ export function useRoadmapData() {
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [selectedStatus, selectedProject, selectedMonth, searchQuery])
+  }, [selectedStatuses, selectedCategories, selectedReleaseDate, searchQuery])
 
   const fetchTaskDetail = useCallback(async (task) => {
     try {
@@ -106,8 +103,26 @@ export function useRoadmapData() {
     setTimeout(() => setSelectedTask(null), 300)
   }, [])
 
-  const toggleFilter = useCallback(() => {
-    setIsFilterOpen(prev => !prev)
+  const toggleStatus = useCallback((value) => {
+    setSelectedStatuses((prev) => (
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    ))
+  }, [])
+
+  const toggleCategory = useCallback((value) => {
+    setSelectedCategories((prev) => (
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    ))
+  }, [])
+
+  const selectReleaseDate = useCallback((value) => {
+    setSelectedReleaseDate((prev) => (prev === value ? '' : value))
+  }, [])
+
+  const clearAllFilters = useCallback(() => {
+    setSelectedStatuses([])
+    setSelectedCategories([])
+    setSelectedReleaseDate('')
   }, [])
 
   return {
@@ -116,16 +131,13 @@ export function useRoadmapData() {
     filterOptions,
     isLoading,
     error,
-    activeView,
-    setActiveView,
-    isFilterOpen,
-    toggleFilter,
-    selectedStatus,
-    setSelectedStatus,
-    selectedProject,
-    setSelectedProject,
-    selectedMonth,
-    setSelectedMonth,
+    selectedStatuses,
+    selectedCategories,
+    selectedReleaseDate,
+    toggleStatus,
+    toggleCategory,
+    selectReleaseDate,
+    clearAllFilters,
     searchQuery,
     setSearchQuery,
     selectedTask,

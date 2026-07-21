@@ -19,9 +19,10 @@ router.get('/health', (_req, res) => {
 });
 
 router.get('/roadmap/stories', apiKeyGuard, wrap(async (req, res) => {
+  const toArray = (v) => [].concat(v || []).filter(Boolean);
   const data = await roadmapService.findAll({
-    status: req.query.status || '',
-    project: req.query.project || '',
+    status: toArray(req.query.status),
+    project: toArray(req.query.project),
     month: req.query.month || '',
     search: req.query.search || '',
   });
