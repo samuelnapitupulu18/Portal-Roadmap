@@ -38,6 +38,14 @@ const STATUS_COLORS = {
   [STORY_STATUS.DONE]: '#48bb78',
 };
 
+// Urutan tampil roadmap: yang paling matang di atas.
+const STATUS_RANK = {
+  [STORY_STATUS.DONE]: 0,
+  [STORY_STATUS.TESTING]: 1,
+  [STORY_STATUS.IN_PROGRESS]: 2,
+  [STORY_STATUS.PLANNED]: 3,
+};
+
 const EPIC_FIELDS = [
   'summary', 'description', 'status', 'assignee', 'reporter',
   'duedate', 'created', 'components', 'labels',
@@ -133,7 +141,7 @@ class RoadmapService {
       logger.debug('Using mock data (Jira not configured)', CTX);
     }
 
-    stories = this._withDerivedFields(stories);
+    stories = this._sortStories(this._withDerivedFields(stories));
 
     cache.set(cacheKey, stories);
     return stories;
@@ -141,29 +149,48 @@ class RoadmapService {
 
   _withDerivedFields(stories) {
     return stories.map((s) => {
-      const effectiveMonthKey = this._effectiveMonthKey(s);
+      const anchor = this._dateAnchor(s);
+      const isDone = s.status === STORY_STATUS.DONE;
       return {
         ...s,
-        effectiveMonthKey,
-        expectedLabel: effectiveMonthKey ? this._formatMonthLabel(effectiveMonthKey) : null,
-        completedAtLabel: s.status === STORY_STATUS.DONE && s.completedAt
-          ? this._formatDate(s.completedAt)
-          : null,
+        effectiveMonthKey: anchor ? anchor.slice(0, 7) : null,
+        expectedLabel: !isDone && s.endDate ? this._formatDate(s.endDate) : null,
+        completedAtLabel: isDone && s.completedAt ? this._formatDate(s.completedAt) : null,
       };
     });
   }
 
-  _currentMonthKey() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  // Tanggal acuan untuk urutan dan bucket bulan (ISO, sortable apa adanya):
+  // Done memakai tanggal selesai, sisanya memakai due date. String kosong
+  // berarti epic belum punya tanggal — sengaja tidak dikarang-karang.
+  _dateAnchor(story) {
+    if (story.status === STORY_STATUS.DONE) {
+      return story.completedAt || story.endDate || story.startDate || '';
+    }
+    return story.endDate || '';
   }
 
-  _effectiveMonthKey(story) {
-    if (story.status === STORY_STATUS.DONE) {
-      const anchor = story.completedAt || story.endDate || story.startDate || '';
-      return anchor ? anchor.slice(0, 7) : null;
-    }
-    return this._currentMonthKey();
+  // Done → In Review → In Progress → To Do; di dalam tiap status terbaru ke
+  // terlama, dan yang belum punya tanggal turun ke dasar status-nya sendiri.
+  _sortStories(stories) {
+    const rank = (s) => (s.status in STATUS_RANK ? STATUS_RANK[s.status] : 99);
+
+    return stories
+      .map((story, index) => ({ story, index }))
+      .sort((a, b) => {
+        const byStatus = rank(a.story) - rank(b.story);
+        if (byStatus !== 0) return byStatus;
+
+        const dateA = this._dateAnchor(a.story);
+        const dateB = this._dateAnchor(b.story);
+        if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
+        if (dateA !== dateB) return dateA ? -1 : 1;
+
+        // Sisanya ikut urutan Jira (updated DESC). Dibandingkan lewat index
+        // karena Array#sort belum stabil di Node lawas yang jadi target build.
+        return a.index - b.index;
+      })
+      .map(({ story }) => story);
   }
 
   _formatMonthLabel(monthKey) {
@@ -206,8 +233,9 @@ class RoadmapService {
   }
 
   _buildDateFilter() {
-    // 400d covers the 12-month Release Date window (_bucketByReleaseDate) with margin,
-    // since Jira's `updated` timestamp can lag an epic's actual resolutiondate slightly.
+    // 400d covers the 12-month backward Release Date window (_bucketByReleaseDate) with
+    // margin, since Jira's `updated` timestamp can lag an epic's actual resolutiondate
+    // slightly. Epics due in the future are still recent by `updated`, so they come along.
     return 'updated >= -400d';
   }
 
@@ -403,12 +431,25 @@ class RoadmapService {
 
   _bucketByReleaseDate(stories) {
     const now = new Date();
+    const keyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+    // Due date epic yang sedang berjalan kerap jatuh di bulan depan, jadi jendela
+    // bucket ikut memanjang ke depan sejauh data — dibatasi 12 bulan supaya satu
+    // due date nyasar tidak melahirkan puluhan bucket kosong.
+    const first = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const maxAhead = keyOf(new Date(now.getFullYear(), now.getMonth() + 12, 1));
+    let lastKey = keyOf(now);
+    stories.forEach((s) => {
+      const key = s.effectiveMonthKey;
+      if (key && key > lastKey && key <= maxAhead) lastKey = key;
+    });
+
     const buckets = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    for (let d = new Date(first); keyOf(d) <= lastKey; d.setMonth(d.getMonth() + 1)) {
+      const key = keyOf(d);
       buckets.push({ value: key, label: this._formatMonthLabel(key), count: 0 });
     }
+
     const byKey = new Map(buckets.map((b) => [b.value, b]));
     stories.forEach((s) => {
       const bucket = byKey.get(s.effectiveMonthKey);
