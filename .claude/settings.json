@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --no-install babel src/features/roadmap/pages/RoadmapDashboard.jsx --presets @babel/preset-react)",
+      "Bash(echo \"dash exit:$?\")",
+      "Bash(npx --no-install babel src/features/roadmap/components/EpicCardGroup.jsx --presets @babel/preset-react)",
+      "Bash(echo \"epiccard exit:$?\")",
+      "Bash(npx --no-install esbuild src/features/roadmap/pages/RoadmapDashboard.jsx --loader=jsx --bundle=false --format=esm)",
+      "Bash(echo \"dash:$?\")",
+      "Bash(npx --no-install esbuild src/features/roadmap/components/EpicCardGroup.jsx --loader=jsx --bundle=false --format=esm)",
+      "Bash(echo \"epiccard:$?\")",
+      "Bash(rm -f output.log output2.log)",
+      "Bash(git checkout *)",
+      "Bash(node -c src/config.js)",
+      "Bash(node -c src/data/stories.seed.js)",
+      "Bash(node -e ' *)",
+      "Bash(rm frontend/src/features/roadmap/components/TaskCard.jsx frontend/src/features/roadmap/types/roadmap.types.js)",
+      "Bash(rmdir frontend/src/features/roadmap/types)",
+      "Bash(git ls-remote *)",
+      "Bash(git merge *)",
+      "Bash(git fetch *)",
+      "Bash(git ls-tree *)",
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git branch *)",
+      "Bash(git check-ignore *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm uninstall *)",
+      "Bash(rm -rf dist)",
+      "Bash(timeout 3 node dist/server.js)",
+      "Bash(npm ls *)",
+      "Bash(VITE_API_BASE_URL=http://202.162.204.126:3002 VITE_API_KEY=c4ce9282ed4e120699871be40a5b3f001f900af593ed509b npm run build)"
+    ]
+  }
+}

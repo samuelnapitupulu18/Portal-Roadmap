@@ -40,7 +40,7 @@ const config = Object.freeze({
   }),
 
   cacheTtlSeconds: parseInt(process.env.CACHE_TTL_SECONDS || '300', 10),
-  corsAllowedOrigins: parseList(process.env.CORS_ALLOWED_ORIGINS, 'http://localhost:5173'),
+  corsAllowedOrigins: parseList(process.env.CORS_ALLOWED_ORIGINS, 'http://localhost:7005'),
   apiKey: process.env.API_KEY || '',
 });
 
