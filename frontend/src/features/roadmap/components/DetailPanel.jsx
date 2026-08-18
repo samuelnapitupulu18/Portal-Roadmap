@@ -9,7 +9,7 @@ const attachmentUrl = (path) => `${API_BASE}${path}${API_KEY ? `?api_key=${API_K
 
 const isDone = (status = '') => status.toLowerCase().includes('done')
 
-export function DetailPanel({ task, isOpen, onClose, onChildClick, onBack, canGoBack }) {
+export function DetailPanel({ task, isOpen, isLoading = false, onClose, onChildClick, onBack, canGoBack }) {
   if (!task) return null
 
   const children = task.children || []
@@ -131,24 +131,32 @@ export function DetailPanel({ task, isOpen, onClose, onChildClick, onBack, canGo
               </p>
             </div>
 
-            {task.children && (
+            {(isLoading || task.children) && (
               <div className="mb-10 border-t border-gray-100 pt-8">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
                     Child work items
                   </h3>
-                  <span className="text-xs font-semibold text-gray-500">
-                    {childProgress}% Done
-                  </span>
+                  {!isLoading && (
+                    <span className="text-xs font-semibold text-gray-500">
+                      {childProgress}% Done
+                    </span>
+                  )}
                 </div>
                 <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
                   <div
-                    className="h-full bg-green-500 rounded-full transition-all duration-500"
-                    style={{ width: `${childProgress}%` }}
+                    className={`h-full bg-green-500 rounded-full transition-all duration-500 ${isLoading ? 'animate-pulse' : ''}`}
+                    style={{ width: isLoading ? '100%' : `${childProgress}%` }}
                   />
                 </div>
 
-                {children.length === 0 ? (
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />
+                    ))}
+                  </div>
+                ) : children.length === 0 ? (
                   <div className="py-6 text-center text-sm text-gray-400 italic bg-gray-50/50 rounded-lg border border-gray-100">
                     No child work items found.
                   </div>
@@ -221,7 +229,20 @@ export function DetailPanel({ task, isOpen, onClose, onChildClick, onBack, canGo
               </div>
             )}
 
-            {task.activity && task.activity.length > 0 && (
+            {isLoading && (
+              <div className="mb-10 border-t border-gray-100 pt-8">
+                <h3 className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-6">
+                  ACTIVITY TIMELINE
+                </h3>
+                <div className="space-y-4">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="h-8 rounded-lg bg-gray-100 animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!isLoading && task.activity && task.activity.length > 0 && (
               <div className="mb-10 border-t border-gray-100 pt-8">
                 <h3 className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-6">
                   ACTIVITY TIMELINE

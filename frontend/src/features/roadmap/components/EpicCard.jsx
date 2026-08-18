@@ -13,6 +13,7 @@ export function EpicCard({
   expectedLabel,
   completedAtLabel,
   onClick,
+  onPrefetch,
 }) {
   const isPlanned = status === 'To Do'
   const isDone = status === 'Done'
@@ -24,6 +25,8 @@ export function EpicCard({
     <Card
       className="bg-white border-0 shadow-sm rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
       onClick={onClick}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
     >
       <CardContent className="p-6 flex flex-col h-full">
         <div className="flex items-start justify-between gap-2 mb-4">

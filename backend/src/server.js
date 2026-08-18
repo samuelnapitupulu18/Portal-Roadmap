@@ -1,10 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const morgan = require('morgan');
 
 const { config, APP_NAME } = require('./config');
 const routes = require('./routes');
+const roadmapService = require('./services/RoadmapService');
 const { notFound, errorHandler } = require('./middleware');
 const logger = require('./lib/Logger');
 
@@ -12,6 +14,8 @@ const app = express();
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: config.corsAllowedOrigins, methods: ['GET'], credentials: false }));
+// Payload roadmap didominasi teks JSON — gzip memangkasnya sekitar 75%.
+app.use(compression());
 app.use(express.json());
 app.use(morgan('short'));
 app.use(`/${config.apiPrefix}`, routes);
@@ -27,6 +31,12 @@ const server = app.listen(port, () => {
   logger.info(`Health      : http://localhost:${port}/${apiPrefix}/health`, 'Bootstrap');
   logger.info(`CORS Origins: ${corsAllowedOrigins.join(', ')}`, 'Bootstrap');
   logger.info(`API Key Auth: ${apiKey ? 'enabled' : 'DISABLED (API_KEY not set)'}`, 'Bootstrap');
+
+  roadmapService.warmUp()
+    .then((stories) => logger.info(`Cache warmed: ${stories.length} epics ready`, 'Bootstrap'))
+    .catch((err) => logger.warn(`Cache warm-up failed: ${err.message}`, 'Bootstrap'));
+
+  roadmapService.startAutoRefresh();
 });
 
 function shutdown(signal) {

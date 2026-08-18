@@ -20,6 +20,7 @@ const MESSAGES = Object.freeze({
 
 const CACHE_KEYS = Object.freeze({
   ALL_STORIES: 'roadmap:stories:all',
+  ACTIVITY: (id) => `roadmap:activity:${id}`,
 });
 
 const APP_NAME = 'portal-nusa-backend';

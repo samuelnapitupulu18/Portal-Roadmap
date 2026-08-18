@@ -26,6 +26,8 @@ export function RoadmapDashboard() {
     setSearchQuery,
     selectedTask,
     isDetailOpen,
+    isDetailLoading,
+    prefetchTask,
     handleTaskClick,
     handleChildClick,
     handleBack,
@@ -94,10 +96,15 @@ export function RoadmapDashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 items-start">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {isLoading && (
-                <div className="col-span-full py-16 text-center text-gray-400">
-                  <p className="text-lg font-medium">Loading stories...</p>
-                </div>
+              {/* Skeleton hanya saat benar-benar belum ada isi; saat filter diganti,
+                  daftar lama tetap tampil sampai data baru datang. */}
+              {isLoading && tasks.length === 0 && !error && (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-52 rounded-xl bg-white border border-gray-100 shadow-sm animate-pulse"
+                  />
+                ))
               )}
               {error && !isLoading && (
                 <div className="col-span-full py-16 text-center text-red-500">
@@ -105,11 +112,12 @@ export function RoadmapDashboard() {
                   <p className="text-sm mt-1">{error}</p>
                 </div>
               )}
-              {!isLoading && !error && tasks.map((task) => (
+              {!error && tasks.map((task) => (
                 <EpicCard
                   key={task.id}
                   {...task}
                   onClick={() => handleTaskClick(task)}
+                  onPrefetch={() => prefetchTask(task)}
                 />
               ))}
               {!isLoading && !error && tasks.length === 0 && (
@@ -139,6 +147,7 @@ export function RoadmapDashboard() {
       <DetailPanel
         task={selectedTask}
         isOpen={isDetailOpen}
+        isLoading={isDetailLoading}
         onClose={handleDetailClose}
         onChildClick={handleChildClick}
         onBack={handleBack}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/v1`
 const API_KEY = import.meta.env.VITE_API_KEY || ''
@@ -9,6 +9,7 @@ export function useRoadmapData() {
   const [selectedCategories, setSelectedCategories] = useState([])
   const [selectedReleaseDate, setSelectedReleaseDate] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const [tasks, setTasks] = useState([])
   const [stats, setStats] = useState([])
@@ -19,87 +20,147 @@ export function useRoadmapData() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [taskHistory, setTaskHistory] = useState([])
+  const [isDetailLoading, setIsDetailLoading] = useState(false)
+
+  // Detail yang sudah pernah diambil disimpan supaya epic yang dibuka ulang
+  // tampil seketika; pendingTaskId menjaga respons lama tidak menimpa item baru.
+  const detailCache = useRef(new Map())
+  const pendingTaskId = useRef(null)
+  const inFlight = useRef(new Map())
+  const listCache = useRef(new Map())
+
+  // Hanya ketikan pencarian yang perlu ditahan. Dulu semua trigger (termasuk
+  // load pertama dan klik filter) ikut kena delay 300ms tanpa alasan.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(searchQuery), 250)
+    return () => clearTimeout(id)
+  }, [searchQuery])
 
   useEffect(() => {
-    const fetchStories = async () => {
-      setIsLoading(true)
-      try {
-        const queryParams = new URLSearchParams()
-        selectedStatuses.forEach((s) => queryParams.append('status', s))
-        selectedCategories.forEach((c) => queryParams.append('project', c))
-        if (selectedReleaseDate) queryParams.append('month', selectedReleaseDate)
-        if (searchQuery) queryParams.append('search', searchQuery)
+    const queryParams = new URLSearchParams()
+    selectedStatuses.forEach((s) => queryParams.append('status', s))
+    selectedCategories.forEach((c) => queryParams.append('project', c))
+    if (selectedReleaseDate) queryParams.append('month', selectedReleaseDate)
+    if (debouncedSearch) queryParams.append('search', debouncedSearch)
+    const queryKey = queryParams.toString()
 
-        const response = await fetch(`${API_BASE_URL}/roadmap/stories?${queryParams.toString()}`, FETCH_OPTS)
+    const apply = ({ stories, summary, filterOptions: fOptions }) => {
+      setTasks(stories)
+      setFilterOptions(fOptions)
+      setStats([
+        { label: 'Total Work', count: summary.total },
+        { label: 'To Do', count: summary.planned },
+        { label: 'In Progress', count: summary.inProgress },
+        { label: 'In Review', count: summary.testing },
+        { label: 'Done', count: summary.done },
+      ])
+      setError(null)
+    }
+
+    // Kombinasi filter yang pernah dibuka tampil seketika sambil tetap
+    // disegarkan di latar, jadi tidak ada layar kosong saat bolak-balik filter.
+    const cached = listCache.current.get(queryKey)
+    if (cached) apply(cached)
+    setIsLoading(!cached)
+
+    const controller = new AbortController()
+
+    fetch(`${API_BASE_URL}/roadmap/stories?${queryKey}`, { ...FETCH_OPTS, signal: controller.signal })
+      .then((response) => {
         if (!response.ok) throw new Error('Failed to fetch stories')
-
-        const result = await response.json()
-        const { stories, summary, filterOptions: fOptions } = result.data
-
-        setTasks(stories)
-        setFilterOptions(fOptions)
-        setStats([
-          { label: 'Total Work', count: summary.total },
-          { label: 'To Do', count: summary.planned },
-          { label: 'In Progress', count: summary.inProgress },
-          { label: 'In Review', count: summary.testing },
-          { label: 'Done', count: summary.done },
-        ])
-        setError(null)
-      } catch (err) {
+        return response.json()
+      })
+      .then((result) => {
+        listCache.current.set(queryKey, result.data)
+        apply(result.data)
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return
         console.error(err)
         setError(err.message)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [selectedStatuses, selectedCategories, selectedReleaseDate, debouncedSearch])
+
+  const fetchTaskDetail = useCallback((task) => {
+    const cached = detailCache.current.get(task.id)
+    if (cached) return Promise.resolve(cached)
+
+    // Prefetch saat hover dan klik bisa jatuh ke id yang sama — cukup satu request.
+    const pending = inFlight.current.get(task.id)
+    if (pending) return pending
+
+    const request = (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/roadmap/stories/${task.id}`, FETCH_OPTS)
+        if (!response.ok) throw new Error('Failed to fetch story details')
+        const result = await response.json()
+        detailCache.current.set(task.id, result.data)
+        return result.data
+      } catch (err) {
+        console.error(err)
+        // null = biarkan panel tetap memakai data ringkas dari kartu.
+        return null
       } finally {
-        setIsLoading(false)
+        inFlight.current.delete(task.id)
       }
-    }
+    })()
 
-    const timeoutId = setTimeout(() => {
-      fetchStories()
-    }, 300)
-
-    return () => clearTimeout(timeoutId)
-  }, [selectedStatuses, selectedCategories, selectedReleaseDate, searchQuery])
-
-  const fetchTaskDetail = useCallback(async (task) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/roadmap/stories/${task.id}`, FETCH_OPTS)
-      if (!response.ok) throw new Error('Failed to fetch story details')
-      const result = await response.json()
-      return result.data
-    } catch (err) {
-      console.error(err)
-      return task
-    }
+    inFlight.current.set(task.id, request)
+    return request
   }, [])
 
-  const handleTaskClick = useCallback(async (task) => {
+  // Panel dibuka langsung dengan data yang sudah dimiliki kartu, lalu child
+  // items & activity menyusul. Sebelumnya panel baru muncul setelah request
+  // selesai, sehingga klik terasa tidak bereaksi.
+  const openTask = useCallback(async (task) => {
+    pendingTaskId.current = task.id
+
+    const cached = detailCache.current.get(task.id)
+    setSelectedTask(cached || task)
+    setIsDetailLoading(!cached)
+    if (cached) return
+
+    const detail = await fetchTaskDetail(task)
+    if (pendingTaskId.current !== task.id) return
+    if (detail) setSelectedTask(detail)
+    setIsDetailLoading(false)
+  }, [fetchTaskDetail])
+
+  // Dipanggil saat kursor menyentuh kartu supaya detail sudah siap sebelum diklik.
+  const prefetchTask = useCallback((task) => {
+    if (!detailCache.current.has(task.id)) fetchTaskDetail(task)
+  }, [fetchTaskDetail])
+
+  const handleTaskClick = useCallback((task) => {
     setIsDetailOpen(true)
     setTaskHistory([])
-    const detail = await fetchTaskDetail(task)
-    setSelectedTask(detail)
-  }, [fetchTaskDetail])
+    openTask(task)
+  }, [openTask])
 
-  const handleChildClick = useCallback(async (child) => {
-    setSelectedTask((current) => {
-      if (current) setTaskHistory((prev) => [...prev, current])
-      return current
-    })
-    const detail = await fetchTaskDetail(child)
-    setSelectedTask(detail)
-  }, [fetchTaskDetail])
+  const handleChildClick = useCallback((child) => {
+    if (selectedTask) setTaskHistory((prev) => [...prev, selectedTask])
+    openTask(child)
+  }, [selectedTask, openTask])
 
   const handleBack = useCallback(() => {
-    setTaskHistory((prev) => {
-      if (prev.length === 0) return prev
-      setSelectedTask(prev[prev.length - 1])
-      return prev.slice(0, -1)
-    })
-  }, [])
+    if (taskHistory.length === 0) return
+    const previous = taskHistory[taskHistory.length - 1]
+    pendingTaskId.current = previous.id
+    setSelectedTask(previous)
+    setIsDetailLoading(false)
+    setTaskHistory((prev) => prev.slice(0, -1))
+  }, [taskHistory])
 
   const handleDetailClose = useCallback(() => {
     setIsDetailOpen(false)
     setTaskHistory([])
+    setIsDetailLoading(false)
+    pendingTaskId.current = null
     setTimeout(() => setSelectedTask(null), 300)
   }, [])
 
@@ -142,6 +203,8 @@ export function useRoadmapData() {
     setSearchQuery,
     selectedTask,
     isDetailOpen,
+    isDetailLoading,
+    prefetchTask,
     handleTaskClick,
     handleChildClick,
     handleBack,

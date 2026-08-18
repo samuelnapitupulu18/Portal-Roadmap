@@ -66,7 +66,7 @@ export function FilterSidebar({
         <Filter className="h-4 w-4" /> Filter
       </h3>
 
-      <FilterSection title="Category" defaultOpen={false}>
+      <FilterSection title="Category">
         {categoryOptions.length === 0 && (
           <p className="text-xs text-gray-400 px-2 py-1">No categories</p>
         )}
@@ -82,7 +82,7 @@ export function FilterSidebar({
         ))}
       </FilterSection>
 
-      <FilterSection title="Status" defaultOpen>
+      <FilterSection title="Status">
         {statusOptions.map((o) => (
           <FilterRow
             key={o.value}
@@ -95,7 +95,7 @@ export function FilterSidebar({
         ))}
       </FilterSection>
 
-      <FilterSection title="Release Date" badgeCount={selectedReleaseDate ? 1 : 0} defaultOpen>
+      <FilterSection title="Release Date" badgeCount={selectedReleaseDate ? 1 : 0}>
         {releaseDateOptions.map((o) => (
           <FilterRow
             key={o.value}

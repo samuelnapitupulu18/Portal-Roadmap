@@ -1,7 +1,7 @@
 const jiraClient = require('../lib/JiraClient');
 const cache = require('./CacheService');
 const seedStories = require('../data/stories.seed');
-const { STORY_STATUS, CACHE_KEYS } = require('../config');
+const { config, STORY_STATUS, CACHE_KEYS } = require('../config');
 const logger = require('../lib/Logger');
 
 const CTX = 'RoadmapService';
@@ -63,6 +63,12 @@ const MONTH_NAMES = [
 ];
 
 class RoadmapService {
+  constructor() {
+    // Fetch stories yang sedang berjalan — dipakai untuk dedup request
+    // bersamaan sekaligus refresh di latar belakang.
+    this._refreshPromise = null;
+  }
+
   async findAll(query = {}) {
     const start = Date.now();
     const all = await this._getStories();
@@ -89,24 +95,7 @@ class RoadmapService {
     if (!story) return null;
 
     if (jiraClient.isEnabled) {
-      try {
-        const changelog = await jiraClient.getIssueChangelog(story.id);
-        story.activity = this._parseChangelog(changelog);
-      } catch (err) {
-        logger.error(`Failed to fetch changelog for ${story.id}: ${err.message}`, CTX);
-      }
-
-      if (story.createdAt && !(story.activity || []).some((a) => a.action === 'Created')) {
-        story.activity = [
-          ...(story.activity || []),
-          {
-            action: 'Created',
-            user: story.reporter || 'Unknown User',
-            date: this._formatDate(story.createdAt),
-            timestamp: new Date(story.createdAt).getTime(),
-          },
-        ].sort((a, b) => b.timestamp - a.timestamp);
-      }
+      story.activity = await this._getActivity(story);
 
       if (!Array.isArray(story.children)) {
         try {
@@ -121,6 +110,37 @@ class RoadmapService {
     return story;
   }
 
+  // Changelog ditarik per klik epic, jadi hasilnya ikut di-cache: tanpa ini
+  // setiap buka detail selalu menunggu satu round-trip ke Jira.
+  async _getActivity(story) {
+    const cacheKey = CACHE_KEYS.ACTIVITY(story.id);
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+
+    let activity;
+    try {
+      activity = this._parseChangelog(await jiraClient.getIssueChangelog(story.id));
+    } catch (err) {
+      logger.error(`Failed to fetch changelog for ${story.id}: ${err.message}`, CTX);
+      return story.activity || [];
+    }
+
+    if (story.createdAt && !activity.some((a) => a.action === 'Created')) {
+      activity = [
+        ...activity,
+        {
+          action: 'Created',
+          user: story.reporter || 'Unknown User',
+          date: this._formatDate(story.createdAt),
+          timestamp: new Date(story.createdAt).getTime(),
+        },
+      ].sort((a, b) => b.timestamp - a.timestamp);
+    }
+
+    cache.set(cacheKey, activity);
+    return activity;
+  }
+
   async getAttachmentStream(attachmentId) {
     if (!jiraClient.isEnabled) {
       throw new Error('Jira not configured');
@@ -128,23 +148,70 @@ class RoadmapService {
     return jiraClient.getAttachmentStream(attachmentId);
   }
 
-  async _getStories() {
-    const cacheKey = CACHE_KEYS.ALL_STORIES;
-    const cached = cache.get(cacheKey);
-    if (cached) return cached;
+  // Dipanggil saat server siap supaya user pertama tidak menanggung fetch
+  // dingin ke Jira yang memakan beberapa detik.
+  warmUp() {
+    return this._refreshStories();
+  }
 
-    let stories;
-    if (jiraClient.isEnabled) {
-      stories = await this._fetchFromJira();
-    } else {
-      stories = seedStories;
-      logger.debug('Using mock data (Jira not configured)', CTX);
+  // Cache disegarkan sendiri sebelum TTL habis, jadi request user praktis selalu
+  // mengenai data segar dan tidak pernah ikut menunggu Jira. Timer di-unref agar
+  // tidak menahan proses saat shutdown.
+  startAutoRefresh() {
+    const intervalMs = Math.max(config.cacheTtlSeconds - 30, 30) * 1000;
+    const timer = setInterval(() => {
+      this._refreshStories().catch(() => {});
+    }, intervalMs);
+    timer.unref?.();
+
+    logger.info(`Auto-refresh every ${Math.round(intervalMs / 1000)}s`, CTX);
+    return timer;
+  }
+
+  async _getStories() {
+    const entry = cache.getStale(CACHE_KEYS.ALL_STORIES);
+    if (entry && !entry.isStale) return entry.data;
+
+    // Cache kedaluwarsa: sajikan yang lama dan segarkan di latar belakang.
+    // Tanpa ini, klik pertama setelah TTL habis harus menunggu fetch penuh
+    // ke Jira (~8 detik) sebelum panel detail muncul.
+    if (entry) {
+      this._refreshStories();
+      return entry.data;
     }
 
-    stories = this._sortStories(this._withDerivedFields(stories));
+    return this._refreshStories();
+  }
 
-    cache.set(cacheKey, stories);
-    return stories;
+  // Satu fetch dipakai bersama semua request yang datang bersamaan, jadi klik
+  // beruntun tidak menumpuk panggilan Jira.
+  _refreshStories() {
+    if (this._refreshPromise) return this._refreshPromise;
+
+    const run = (async () => {
+      let stories;
+      if (jiraClient.isEnabled) {
+        stories = await this._fetchFromJira();
+      } else {
+        stories = seedStories;
+        logger.debug('Using mock data (Jira not configured)', CTX);
+      }
+
+      stories = this._sortStories(this._withDerivedFields(stories));
+      stories.forEach((story) => {
+        if (Array.isArray(story.children)) story.children = this._sortChildren(story.children);
+      });
+
+      cache.set(CACHE_KEYS.ALL_STORIES, stories);
+      return stories;
+    })();
+
+    this._refreshPromise = run;
+    run
+      .catch((err) => logger.error(`Background refresh failed: ${err.message}`, CTX))
+      .then(() => { if (this._refreshPromise === run) this._refreshPromise = null; });
+
+    return run;
   }
 
   _withDerivedFields(stories) {
@@ -191,6 +258,31 @@ class RoadmapService {
         return a.index - b.index;
       })
       .map(({ story }) => story);
+  }
+
+  // Child work items: yang belum selesai naik ke atas supaya sisa pekerjaan
+  // langsung terlihat; Done turun ke dasar, yang paling baru selesai lebih dulu.
+  _sortChildren(children) {
+    const isDone = (c) => (c.status === STORY_STATUS.DONE ? 1 : 0);
+
+    return children
+      .map((child, index) => ({ child, index }))
+      .sort((a, b) => {
+        const byDone = isDone(a.child) - isDone(b.child);
+        if (byDone !== 0) return byDone;
+
+        if (isDone(a.child)) {
+          const dateA = a.child.completedAt || '';
+          const dateB = b.child.completedAt || '';
+          if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
+          if (dateA !== dateB) return dateA ? -1 : 1;
+        }
+
+        // Sisanya ikut urutan Jira (created ASC). Dibandingkan lewat index karena
+        // Array#sort belum stabil di Node lawas yang jadi target build.
+        return a.index - b.index;
+      })
+      .map(({ child }) => child);
   }
 
   _formatMonthLabel(monthKey) {
@@ -242,7 +334,7 @@ class RoadmapService {
   async _fetchChildren(epicId) {
     const jql = `project = "IS" AND (parent = "${epicId}" OR "Epic Link" = "${epicId}") ORDER BY created ASC`;
     const issues = await jiraClient.searchIssues(jql, CHILD_FIELDS);
-    return issues.map((issue) => this._transformIssue(issue));
+    return this._sortChildren(issues.map((issue) => this._transformIssue(issue)));
   }
 
   _computeProgress(epic) {
