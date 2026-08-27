@@ -2,14 +2,22 @@ import React from 'react'
 
 export function HeroSection() {
   return (
-    <section className="bg-gradient-to-r from-[#6edc9e] to-[#71d9a0] text-white">
-      <div className="py-12 px-6 text-center">
-        <div className="inline-block px-4 py-1 rounded-full border border-white/50 text-white text-xs font-semibold tracking-wider mb-6 uppercase">
+    <section
+      className="px-6 py-16 text-center text-white"
+      style={{ background: 'linear-gradient(135deg, #27ae60 0%, #6FCF97 50%, #a8e6c1 100%)' }}
+    >
+      <div className="mx-auto max-w-4xl">
+        <span
+          className="mb-4 inline-block rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wider"
+          style={{ background: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.4)' }}
+        >
           NUSA ROADMAP
-        </div>
-        <h2 className="text-5xl font-bold mb-4">See What's Being Built</h2>
-        <p className="text-lg max-w-2xl mx-auto opacity-90">
-          Explore planned stories, track their progress, and stay informed as work moves toward completion.
+        </span>
+        <h1 className="mb-4 text-5xl font-bold">Every Issue Has a Progress Story</h1>
+        <p className="text-xl" style={{ color: 'rgba(255,255,255,0.9)' }}>
+          We share the latest status of every reported issue so you always know
+          <br />
+          where it stands and what's happening next.
         </p>
       </div>
     </section>

@@ -1,10 +1,91 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/v1`
 const API_KEY = import.meta.env.VITE_API_KEY || ''
 const FETCH_OPTS = { headers: { 'x-api-key': API_KEY } }
 
+export const SORT_SECTIONS = [
+  {
+    title: 'Priority',
+    options: [
+      { value: 'priority', label: 'Priority', hint: 'Needs attention first' },
+    ],
+  },
+  {
+    title: 'Release Date',
+    options: [
+      { value: 'nearest', label: 'Nearest', hint: 'Closest release date first' },
+      { value: 'farthest', label: 'Farthest', hint: 'Farthest release date first' },
+    ],
+  },
+  {
+    title: 'Last Update',
+    options: [
+      { value: 'newest', label: 'Newest', hint: 'Most recently updated first' },
+      { value: 'oldest', label: 'Oldest', hint: 'Least recently updated first' },
+    ],
+  },
+]
+
+const DAY_MS = 24 * 60 * 60 * 1000
+const RECENT_WINDOW_DAYS = 30
+
+function startOfDay(value) {
+  const d = new Date(value)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+// Tier "Priority": Overdue → In Progress → In Review → To Do (due ≤30 hari)
+// → Upcoming (due jauh/tanpa tanggal) → Done (selesai ≤30 hari) → Done (lama).
+// Overdue didahulukan dari status apa pun selama epic belum Done.
+function priorityTier(task, todayMs) {
+  if (task.status === 'Done') {
+    if (!task.completedAt) return 6
+    const cutoff = todayMs - RECENT_WINDOW_DAYS * DAY_MS
+    return startOfDay(task.completedAt) >= cutoff ? 5 : 6
+  }
+
+  const due = task.endDate ? startOfDay(task.endDate) : null
+  if (due !== null && due < todayMs) return 0
+  if (task.status === 'In Progress') return 1
+  if (task.status === 'In Review') return 2
+  if (due === null) return 4
+  const soonCutoff = todayMs + RECENT_WINDOW_DAYS * DAY_MS
+  return due <= soonCutoff ? 3 : 4
+}
+
+const SORT_COMPARATORS = {
+  priority: (a, b, todayMs) => {
+    const tierA = priorityTier(a, todayMs)
+    const tierB = priorityTier(b, todayMs)
+    if (tierA !== tierB) return tierA - tierB
+
+    if (tierA >= 5) {
+      const doneA = a.completedAt ? startOfDay(a.completedAt) : 0
+      const doneB = b.completedAt ? startOfDay(b.completedAt) : 0
+      return doneB - doneA
+    }
+    const dateA = a.endDate ? startOfDay(a.endDate) : Infinity
+    const dateB = b.endDate ? startOfDay(b.endDate) : Infinity
+    return dateA - dateB
+  },
+  nearest: (a, b) => {
+    const dateA = a.endDate ? startOfDay(a.endDate) : Infinity
+    const dateB = b.endDate ? startOfDay(b.endDate) : Infinity
+    return dateA - dateB
+  },
+  farthest: (a, b) => {
+    const dateA = a.endDate ? startOfDay(a.endDate) : -Infinity
+    const dateB = b.endDate ? startOfDay(b.endDate) : -Infinity
+    return dateB - dateA
+  },
+  newest: (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime(),
+  oldest: (a, b) => new Date(a.updatedAt || 0).getTime() - new Date(b.updatedAt || 0).getTime(),
+}
+
 export function useRoadmapData() {
+  const [sortBy, setSortBy] = useState('priority')
   const [selectedStatuses, setSelectedStatuses] = useState([])
   const [selectedCategories, setSelectedCategories] = useState([])
   const [selectedReleaseDate, setSelectedReleaseDate] = useState('')
@@ -85,6 +166,18 @@ export function useRoadmapData() {
 
     return () => controller.abort()
   }, [selectedStatuses, selectedCategories, selectedReleaseDate, debouncedSearch])
+
+  // Urutan dihitung di klien untuk semua opsi sort supaya ganti urutan terasa
+  // seketika tanpa request baru ke backend.
+  const sortedTasks = useMemo(() => {
+    const todayMs = startOfDay(new Date())
+    const cmp = SORT_COMPARATORS[sortBy] || SORT_COMPARATORS.priority
+
+    return tasks
+      .map((task, index) => ({ task, index }))
+      .sort((a, b) => cmp(a.task, b.task, todayMs) || a.index - b.index)
+      .map(({ task }) => task)
+  }, [tasks, sortBy])
 
   const fetchTaskDetail = useCallback((task) => {
     const cached = detailCache.current.get(task.id)
@@ -187,7 +280,9 @@ export function useRoadmapData() {
   }, [])
 
   return {
-    tasks,
+    tasks: sortedTasks,
+    sortBy,
+    setSortBy,
     stats,
     filterOptions,
     isLoading,

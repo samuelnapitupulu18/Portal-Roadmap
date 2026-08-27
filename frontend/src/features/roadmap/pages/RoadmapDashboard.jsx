@@ -1,16 +1,19 @@
 import React from 'react'
 import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { useRoadmapData } from '@/features/roadmap/api/useRoadmapData'
+import { SORT_SECTIONS, useRoadmapData } from '@/features/roadmap/api/useRoadmapData'
 import { HeroSection } from '@/features/roadmap/components/HeroSection'
 import { StatsSummary } from '@/features/roadmap/components/StatsSummary'
 import { EpicCard } from '@/features/roadmap/components/EpicCard'
 import { FilterSidebar } from '@/features/roadmap/components/FilterSidebar'
+import { SortMenu } from '@/features/roadmap/components/SortMenu'
 import { DetailPanel } from '@/features/roadmap/components/DetailPanel'
 
 export function RoadmapDashboard() {
   const {
     tasks,
+    sortBy,
+    setSortBy,
     stats,
     filterOptions,
     isLoading,
@@ -47,26 +50,23 @@ export function RoadmapDashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#f2fcf5] font-sans">
+    <div className="min-h-screen font-sans" style={{ background: '#f0faf4' }}>
       <main>
         <HeroSection />
         <StatsSummary stats={stats} />
-        <div className="max-w-7xl mx-auto pb-16 px-16">
-          <div className="pt-8 pb-4">
-            <div className="relative max-w-md">
+        <div className="max-w-7xl mx-auto px-6 py-10">
+          <div className="mb-4 flex items-start gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-10 bg-white border-gray-200"
+                className="pl-10 h-9 bg-white border-gray-200"
               />
             </div>
-          </div>
-
-          <div className="text-sm font-medium text-gray-400 mb-2">
-            {tasks.length} features
+            <SortMenu sections={SORT_SECTIONS} value={sortBy} onChange={setSortBy} />
           </div>
 
           {chips.length > 0 && (
@@ -94,38 +94,44 @@ export function RoadmapDashboard() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 items-start">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {/* Skeleton hanya saat benar-benar belum ada isi; saat filter diganti,
-                  daftar lama tetap tampil sampai data baru datang. */}
-              {isLoading && tasks.length === 0 && !error && (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-52 rounded-xl bg-white border border-gray-100 shadow-sm animate-pulse"
+          <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[1fr_260px]">
+            <div className="order-2 lg:order-1">
+              <div className="mb-5 text-sm text-gray-400">
+                {tasks.length} {tasks.length === 1 ? 'issue' : 'issues'}
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {/* Skeleton hanya saat benar-benar belum ada isi; saat filter diganti,
+                    daftar lama tetap tampil sampai data baru datang. */}
+                {isLoading && tasks.length === 0 && !error && (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-52 rounded-2xl bg-white border border-gray-100 shadow-sm animate-pulse"
+                    />
+                  ))
+                )}
+                {error && !isLoading && (
+                  <div className="col-span-full py-16 text-center text-red-500">
+                    <p className="text-lg font-medium">Error loading data</p>
+                    <p className="text-sm mt-1">{error}</p>
+                  </div>
+                )}
+                {!error && tasks.map((task) => (
+                  <EpicCard
+                    key={task.id}
+                    {...task}
+                    onClick={() => handleTaskClick(task)}
+                    onPrefetch={() => prefetchTask(task)}
                   />
-                ))
-              )}
-              {error && !isLoading && (
-                <div className="col-span-full py-16 text-center text-red-500">
-                  <p className="text-lg font-medium">Error loading data</p>
-                  <p className="text-sm mt-1">{error}</p>
-                </div>
-              )}
-              {!error && tasks.map((task) => (
-                <EpicCard
-                  key={task.id}
-                  {...task}
-                  onClick={() => handleTaskClick(task)}
-                  onPrefetch={() => prefetchTask(task)}
-                />
-              ))}
-              {!isLoading && !error && tasks.length === 0 && (
-                <div className="col-span-full py-16 text-center text-gray-400">
-                  <p className="text-lg font-medium">No items found</p>
-                  <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
-                </div>
-              )}
+                ))}
+                {!isLoading && !error && tasks.length === 0 && (
+                  <div className="col-span-full py-16 text-center text-gray-400">
+                    <p className="text-lg font-medium">No items found</p>
+                    <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <FilterSidebar

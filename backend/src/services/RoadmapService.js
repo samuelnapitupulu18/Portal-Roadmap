@@ -32,29 +32,39 @@ const STATUS_MAP = {
 };
 
 const STATUS_COLORS = {
-  [STORY_STATUS.PLANNED]: '#ed8936',
-  [STORY_STATUS.IN_PROGRESS]: '#3182ce',
-  [STORY_STATUS.TESTING]: '#9f7aea',
-  [STORY_STATUS.DONE]: '#48bb78',
+  [STORY_STATUS.PLANNED]: '#f97316',
+  [STORY_STATUS.IN_PROGRESS]: '#3b82f6',
+  [STORY_STATUS.TESTING]: '#8b5cf6',
+  [STORY_STATUS.DONE]: '#22c55e',
 };
 
-// Urutan tampil roadmap: yang paling matang di atas.
-const STATUS_RANK = {
-  [STORY_STATUS.DONE]: 0,
-  [STORY_STATUS.TESTING]: 1,
-  [STORY_STATUS.IN_PROGRESS]: 2,
-  [STORY_STATUS.PLANNED]: 3,
+// Jendela "baru saja" dipakai dua arah oleh urutan Priority: due date dalam
+// N hari ke depan bikin To Do dianggap pekerjaan sekarang (bukan Upcoming),
+// dan Done yang selesai dalam N hari terakhir dianggap Recent (bukan Old).
+const PRIORITY_RECENT_WINDOW_DAYS = 30;
+
+// Tier urutan default (Priority): epic yang paling butuh perhatian dulu.
+// Overdue didahulukan dari status apa pun selama belum Done, karena due date
+// yang sudah lewat lebih mendesak daripada status kerjanya sendiri.
+const PRIORITY_TIER = {
+  OVERDUE: 0,
+  IN_PROGRESS: 1,
+  IN_REVIEW: 2,
+  TODO_CURRENT: 3,
+  UPCOMING: 4,
+  DONE_RECENT: 5,
+  DONE_OLD: 6,
 };
 
 const EPIC_FIELDS = [
   'summary', 'description', 'status', 'assignee', 'reporter',
-  'duedate', 'created', 'components', 'labels',
+  'duedate', 'created', 'updated', 'components', 'labels',
   'attachment', 'project', 'priority', 'resolutiondate',
 ];
 
 const CHILD_FIELDS = [
   'summary', 'status', 'priority', 'assignee', 'issuetype',
-  'parent', 'customfield_10014', 'duedate', 'created', 'resolutiondate',
+  'parent', 'customfield_10014', 'duedate', 'created', 'updated', 'resolutiondate',
 ];
 
 const MONTH_NAMES = [
@@ -99,7 +109,7 @@ class RoadmapService {
 
       if (!Array.isArray(story.children)) {
         try {
-          story.children = await this._fetchChildren(story.id);
+          story.children = await this._fetchChildren(story.id, story);
         } catch (err) {
           logger.error(`Failed to fetch child work items for ${story.id}: ${err.message}`, CTX);
           story.children = [];
@@ -197,10 +207,13 @@ class RoadmapService {
         logger.debug('Using mock data (Jira not configured)', CTX);
       }
 
-      stories = this._sortStories(this._withDerivedFields(stories));
+      // Child di-stamp & diurutkan dulu (butuh status/completedAt mentah
+      // milik parent) supaya newWorkCount di _withDerivedFields tinggal
+      // menghitung, bukan mengevaluasi ulang _isNewChild per child.
       stories.forEach((story) => {
-        if (Array.isArray(story.children)) story.children = this._sortChildren(story.children);
+        if (Array.isArray(story.children)) story.children = this._sortChildren(story.children, story);
       });
+      stories = this._sortStories(this._withDerivedFields(stories));
 
       cache.set(CACHE_KEYS.ALL_STORIES, stories);
       return stories;
@@ -215,16 +228,59 @@ class RoadmapService {
   }
 
   _withDerivedFields(stories) {
+    const today = this._dateKey();
     return stories.map((s) => {
       const anchor = this._dateAnchor(s);
       const isDone = s.status === STORY_STATUS.DONE;
+      const due = (s.endDate || '').slice(0, 10);
+      const completedAt = (s.completedAt || '').slice(0, 10);
       return {
         ...s,
         effectiveMonthKey: anchor ? anchor.slice(0, 7) : null,
-        expectedLabel: !isDone && s.endDate ? this._formatDate(s.endDate) : null,
+        // Overdue berlaku untuk status apa pun selain Done — To Do, In Progress,
+        // maupun In Review yang due date-nya sudah lewat tetap ditandai.
+        isOverdue: !isDone && !!due && due < today,
+        // Done yang baru selesai setelah due date-nya sendiri tetap ketahuan
+        // telat, bukan cuma diam-diam tampil "Done" seperti yang tepat waktu.
+        isLateCompletion: isDone && !!due && !!completedAt && completedAt > due,
         completedAtLabel: isDone && s.completedAt ? this._formatDate(s.completedAt) : null,
+        newWorkCount: this._countNewWork(s),
       };
     });
+  }
+
+  // Epic yang sudah Done tapi kemasukan child baru setelah tanggal selesainya
+  // berarti scope-nya nambah belakangan — dihitung "New Work" supaya kelihatan
+  // di kartu, bukan cuma diam-diam nempel di progress yang sudah 100%. Children
+  // sudah di-stamp `isNew` oleh _sortChildren sebelum fungsi ini dipanggil,
+  // jadi tinggal dihitung tanpa mengevaluasi ulang _isNewChild per child.
+  _countNewWork(story) {
+    const children = story.children || [];
+    return children.filter((c) => c.isNew).length;
+  }
+
+  // Child dianggap "baru" hanya kalau parent-nya sudah Done dan child itu
+  // dibuat setelah tanggal selesai tersebut — scope yang nambah belakangan,
+  // bukan sekadar child yang baru dibuat di epic yang masih berjalan. Yang
+  // child-nya sendiri sudah Done tidak lagi dianggap "baru" — sudah beres,
+  // tidak butuh perhatian ekstra lagi meski awalnya nyelip belakangan.
+  _isNewChild(child, parent) {
+    if (!parent || parent.status !== STORY_STATUS.DONE) return false;
+    if (child.status === STORY_STATUS.DONE) return false;
+    const completedAt = (parent.completedAt || '').slice(0, 10);
+    if (!completedAt) return false;
+    const created = (child.createdAt || child.startDate || '').slice(0, 10);
+    return !!created && created > completedAt;
+  }
+
+  // Tanggal lokal sebagai string ISO (YYYY-MM-DD) supaya bisa dibandingkan
+  // apa adanya dengan due date dari Jira yang formatnya sama.
+  _dateKey(offsetDays = 0) {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${month}-${day}`;
   }
 
   // Tanggal acuan untuk urutan dan bucket bulan (ISO, sortable apa adanya):
@@ -237,21 +293,48 @@ class RoadmapService {
     return story.endDate || '';
   }
 
-  // Done → In Review → In Progress → To Do; di dalam tiap status terbaru ke
-  // terlama, dan yang belum punya tanggal turun ke dasar status-nya sendiri.
-  _sortStories(stories) {
-    const rank = (s) => (s.status in STATUS_RANK ? STATUS_RANK[s.status] : 99);
+  // Urutan default (Priority): epic yang paling butuh perhatian user di atas.
+  // Overdue → In Progress → In Review → To Do (due ≤30 hari) → Upcoming
+  // (due jauh atau belum ada tanggal) → Done (selesai ≤30 hari) → Done (lama).
+  // Di dalam tier yang belum selesai, deadline terdekat naik dulu; di dalam
+  // tier Done, yang paling baru selesai naik dulu.
+  _priorityTier(story) {
+    const today = this._dateKey();
+    const due = (story.endDate || '').slice(0, 10);
 
+    if (story.status === STORY_STATUS.DONE) {
+      const completedAt = (story.completedAt || '').slice(0, 10);
+      if (!completedAt) return PRIORITY_TIER.DONE_OLD;
+      const recentCutoff = this._dateKey(-PRIORITY_RECENT_WINDOW_DAYS);
+      return completedAt >= recentCutoff ? PRIORITY_TIER.DONE_RECENT : PRIORITY_TIER.DONE_OLD;
+    }
+
+    if (due && due < today) return PRIORITY_TIER.OVERDUE;
+    if (story.status === STORY_STATUS.IN_PROGRESS) return PRIORITY_TIER.IN_PROGRESS;
+    if (story.status === STORY_STATUS.TESTING) return PRIORITY_TIER.IN_REVIEW;
+
+    if (!due) return PRIORITY_TIER.UPCOMING;
+    const soonCutoff = this._dateKey(PRIORITY_RECENT_WINDOW_DAYS);
+    return due <= soonCutoff ? PRIORITY_TIER.TODO_CURRENT : PRIORITY_TIER.UPCOMING;
+  }
+
+  _sortStories(stories) {
     return stories
       .map((story, index) => ({ story, index }))
       .sort((a, b) => {
-        const byStatus = rank(a.story) - rank(b.story);
-        if (byStatus !== 0) return byStatus;
+        const tierA = this._priorityTier(a.story);
+        const tierB = this._priorityTier(b.story);
+        if (tierA !== tierB) return tierA - tierB;
 
-        const dateA = this._dateAnchor(a.story);
-        const dateB = this._dateAnchor(b.story);
-        if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
-        if (dateA !== dateB) return dateA ? -1 : 1;
+        if (tierA >= PRIORITY_TIER.DONE_RECENT) {
+          const doneA = a.story.completedAt || '';
+          const doneB = b.story.completedAt || '';
+          if (doneA !== doneB) return doneB.localeCompare(doneA);
+        } else {
+          const dateA = a.story.endDate || '';
+          const dateB = b.story.endDate || '';
+          if (dateA !== dateB) return dateA ? (dateB ? dateA.localeCompare(dateB) : -1) : 1;
+        }
 
         // Sisanya ikut urutan Jira (updated DESC). Dibandingkan lewat index
         // karena Array#sort belum stabil di Node lawas yang jadi target build.
@@ -260,14 +343,19 @@ class RoadmapService {
       .map(({ story }) => story);
   }
 
-  // Child work items: yang belum selesai naik ke atas supaya sisa pekerjaan
-  // langsung terlihat; Done turun ke dasar, yang paling baru selesai lebih dulu.
-  _sortChildren(children) {
+  // Child "baru" (ditambahkan setelah epic Done) naik paling atas — itu yang
+  // paling butuh perhatian karena nambah scope belakangan. Di bawahnya, yang
+  // belum selesai naik dulu supaya sisa pekerjaan langsung terlihat; Done
+  // turun ke dasar, yang paling baru selesai lebih dulu.
+  _sortChildren(children, parent) {
     const isDone = (c) => (c.status === STORY_STATUS.DONE ? 1 : 0);
 
     return children
-      .map((child, index) => ({ child, index }))
+      .map((child, index) => ({ child: { ...child, isNew: this._isNewChild(child, parent) }, index }))
       .sort((a, b) => {
+        const byNew = (b.child.isNew ? 1 : 0) - (a.child.isNew ? 1 : 0);
+        if (byNew !== 0) return byNew;
+
         const byDone = isDone(a.child) - isDone(b.child);
         if (byDone !== 0) return byDone;
 
@@ -331,10 +419,10 @@ class RoadmapService {
     return 'updated >= -400d';
   }
 
-  async _fetchChildren(epicId) {
+  async _fetchChildren(epicId, parent) {
     const jql = `project = "IS" AND (parent = "${epicId}" OR "Epic Link" = "${epicId}") ORDER BY created ASC`;
     const issues = await jiraClient.searchIssues(jql, CHILD_FIELDS);
-    return this._sortChildren(issues.map((issue) => this._transformIssue(issue)));
+    return this._sortChildren(issues.map((issue) => this._transformIssue(issue)), parent);
   }
 
   _computeProgress(epic) {
@@ -373,6 +461,7 @@ class RoadmapService {
       startDate: createdDate?.split('T')[0] || '',
       endDate: dueDate || '',
       completedAt: completedAt?.split('T')[0] || '',
+      updatedAt: fields.updated || createdDate || null,
       images: (fields.attachment || [])
         .filter((att) => att.mimeType?.startsWith('image/'))
         .map((att) => ({
