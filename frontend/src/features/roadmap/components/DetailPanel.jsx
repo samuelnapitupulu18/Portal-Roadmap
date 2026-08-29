@@ -16,6 +16,10 @@ export function DetailPanel({ task, isOpen, isLoading = false, onClose, onChildC
   const doneCount = children.filter((c) => isDone(c.status)).length
   const childProgress = children.length === 0 ? 0 : Math.round((doneCount / children.length) * 100)
 
+  // Backend sudah menghitung & mengurutkan child baru (ditambahkan setelah
+  // epic-nya Done) ke paling atas — di sini tinggal pakai newWorkCount-nya.
+  const newChildCount = task.newWorkCount || 0
+
   return (
     <>
       <div
@@ -94,8 +98,20 @@ export function DetailPanel({ task, isOpen, isLoading = false, onClose, onChildC
                 <h3 className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5 text-gray-400" /> Due Date
                 </h3>
-                <div className="text-sm font-semibold text-gray-900">
-                  {task.dueDate || task.date}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-900">
+                    {task.dueDate || task.date}
+                  </span>
+                  {task.isOverdue && (
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                      Overdue
+                    </span>
+                  )}
+                  {task.isLateCompletion && (
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                      Done: {task.completedAtLabel}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -143,12 +159,18 @@ export function DetailPanel({ task, isOpen, isLoading = false, onClose, onChildC
                     </span>
                   )}
                 </div>
-                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
                   <div
                     className={`h-full bg-green-500 rounded-full transition-all duration-500 ${isLoading ? 'animate-pulse' : ''}`}
                     style={{ width: isLoading ? '100%' : `${childProgress}%` }}
                   />
                 </div>
+
+                {!isLoading && newChildCount > 0 && (
+                  <p className="mb-2 text-right text-[10px] font-bold uppercase tracking-wider" style={{ color: '#60B3D7' }}>
+                    {newChildCount} New Work Items
+                  </p>
+                )}
 
                 {isLoading ? (
                   <div className="space-y-2">
@@ -170,13 +192,15 @@ export function DetailPanel({ task, isOpen, isLoading = false, onClose, onChildC
                       <span className="w-20 text-right shrink-0">Status</span>
                     </div>
 
-                    <div className="divide-y divide-gray-100">
+                    <div className="max-h-[360px] divide-y divide-gray-100 overflow-y-auto">
                       {children.map((child) => {
                         const done = isDone(child.status)
                         return (
                           <div
                             key={child.id}
-                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors cursor-pointer"
+                            className={`flex items-center gap-3 px-3 py-2.5 transition-colors cursor-pointer ${
+                              child.isNew ? 'bg-[#60B3D71A]' : 'hover:bg-gray-50'
+                            }`}
                             onClick={() => onChildClick?.(child)}
                           >
                             {child.issueTypeIconUrl ? (
