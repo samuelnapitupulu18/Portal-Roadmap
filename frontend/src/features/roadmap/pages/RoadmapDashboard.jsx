@@ -55,49 +55,49 @@ export function RoadmapDashboard() {
         <HeroSection />
         <StatsSummary stats={stats} />
         <div className="max-w-7xl mx-auto px-6 py-10">
-          <div className="mb-4 flex items-start gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-9 bg-white border-gray-200"
-              />
-            </div>
-            <SortMenu sections={SORT_SECTIONS} value={sortBy} onChange={setSortBy} />
-          </div>
-
-          {chips.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              {chips.map((chip) => (
-                <span
-                  key={chip.key}
-                  className="inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full pl-3 pr-2 py-1 text-xs text-gray-700"
-                >
-                  {chip.label}
-                  <button
-                    onClick={chip.onRemove}
-                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              <button
-                onClick={clearAllFilters}
-                className="text-xs font-medium text-[#41aa72] hover:underline cursor-pointer"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[1fr_260px]">
+          <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[1fr_280px]">
             <div className="order-2 lg:order-1">
+              <div className="mb-4 flex items-start gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-11 h-11 rounded-full bg-white border-gray-200 shadow-sm"
+                  />
+                </div>
+                <SortMenu sections={SORT_SECTIONS} value={sortBy} onChange={setSortBy} />
+              </div>
+
+              {chips.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  {chips.map((chip) => (
+                    <span
+                      key={chip.key}
+                      className="inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full pl-3 pr-2 py-1 text-xs text-gray-700"
+                    >
+                      {chip.label}
+                      <button
+                        onClick={chip.onRemove}
+                        className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    onClick={clearAllFilters}
+                    className="text-xs font-medium text-[#41aa72] hover:underline cursor-pointer"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
+
               <div className="mb-5 text-sm text-gray-400">
-                {tasks.length} {tasks.length === 1 ? 'issue' : 'issues'}
+                {tasks.length} {tasks.length === 1 ? 'work item' : 'work items'}
               </div>
 
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">

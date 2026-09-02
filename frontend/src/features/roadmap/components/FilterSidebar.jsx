@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { ChevronDown, ChevronUp, Filter } from 'lucide-react'
 
-const ACCENT = '#008573'
+const ACCENT = '#10A37F'
 
 function FilterSection({ title, badgeCount, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -69,11 +69,11 @@ export function FilterSidebar({
   const hasActiveFilters = selectedStatuses.length > 0 || selectedCategories.length > 0 || !!selectedReleaseDate
 
   return (
-    <aside className="order-1 lg:order-2 rounded-2xl border border-green-100 bg-white shadow-sm lg:sticky lg:top-6">
+    <aside className="order-1 lg:order-2 rounded-2xl border border-gray-100 bg-white shadow-sm lg:sticky lg:top-6">
       <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-5 py-4">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4" style={{ color: ACCENT }} />
-          <span className="font-semibold" style={{ color: ACCENT }}>Filter</span>
+          <Filter className="h-[18px] w-[18px]" style={{ color: ACCENT }} />
+          <span className="text-[15px] font-semibold" style={{ color: ACCENT }}>Filter</span>
         </div>
         {hasActiveFilters && (
           <button onClick={onResetAll} className="text-xs font-semibold cursor-pointer" style={{ color: '#27ae60' }}>

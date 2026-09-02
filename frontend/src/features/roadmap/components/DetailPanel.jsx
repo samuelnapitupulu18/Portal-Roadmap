@@ -13,8 +13,6 @@ export function DetailPanel({ task, isOpen, isLoading = false, onClose, onChildC
   if (!task) return null
 
   const children = task.children || []
-  const doneCount = children.filter((c) => isDone(c.status)).length
-  const childProgress = children.length === 0 ? 0 : Math.round((doneCount / children.length) * 100)
 
   // Backend sudah menghitung & mengurutkan child baru (ditambahkan setelah
   // epic-nya Done) ke paling atas — di sini tinggal pakai newWorkCount-nya.
@@ -149,28 +147,16 @@ export function DetailPanel({ task, isOpen, isLoading = false, onClose, onChildC
 
             {(isLoading || task.children) && (
               <div className="mb-10 border-t border-gray-100 pt-8">
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
                     Child work items
                   </h3>
-                  {!isLoading && (
-                    <span className="text-xs font-semibold text-gray-500">
-                      {childProgress}% Done
+                  {!isLoading && newChildCount > 0 && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#60B3D7' }}>
+                      {newChildCount} New Work Items
                     </span>
                   )}
                 </div>
-                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
-                  <div
-                    className={`h-full bg-green-500 rounded-full transition-all duration-500 ${isLoading ? 'animate-pulse' : ''}`}
-                    style={{ width: isLoading ? '100%' : `${childProgress}%` }}
-                  />
-                </div>
-
-                {!isLoading && newChildCount > 0 && (
-                  <p className="mb-2 text-right text-[10px] font-bold uppercase tracking-wider" style={{ color: '#60B3D7' }}>
-                    {newChildCount} New Work Items
-                  </p>
-                )}
 
                 {isLoading ? (
                   <div className="space-y-2">

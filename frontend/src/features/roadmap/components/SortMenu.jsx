@@ -31,7 +31,7 @@ export function SortMenu({ sections = [], value, onChange }) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border bg-white px-3.5 text-sm font-medium cursor-pointer"
+        className="flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border bg-white px-4 text-sm font-medium shadow-sm cursor-pointer"
         style={{ borderColor: open ? ACCENT : '#e5e7eb', color: open ? ACCENT : '#18181B' }}
       >
         <ArrowUpDown className="h-4 w-4" />
