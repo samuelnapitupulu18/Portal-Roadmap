@@ -7,6 +7,7 @@ const STORY_STATUS = Object.freeze({
   PLANNED: 'To Do',
   IN_PROGRESS: 'In Progress',
   TESTING: 'In Review',
+  ON_HOLD: 'On Hold',
   DONE: 'Done',
 });
 
