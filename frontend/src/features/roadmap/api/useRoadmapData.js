@@ -36,7 +36,7 @@ function startOfDay(value) {
   return d.getTime()
 }
 
-// Tier "Priority": Overdue → In Progress → In Review → To Do (due ≤30 hari)
+// Tier "Priority": Overdue → In Progress → On Hold → To Do (due ≤30 hari)
 // → Upcoming (due jauh/tanpa tanggal) → Done (selesai ≤30 hari) → Done (lama).
 // Overdue didahulukan dari status apa pun selama epic belum Done.
 function priorityTier(task, todayMs) {
@@ -49,7 +49,7 @@ function priorityTier(task, todayMs) {
   const due = task.endDate ? startOfDay(task.endDate) : null
   if (due !== null && due < todayMs) return 0
   if (task.status === 'In Progress') return 1
-  if (task.status === 'In Review') return 2
+  if (task.status === 'On Hold') return 2
   if (due === null) return 4
   const soonCutoff = todayMs + RECENT_WINDOW_DAYS * DAY_MS
   return due <= soonCutoff ? 3 : 4
@@ -132,7 +132,7 @@ export function useRoadmapData() {
         { label: 'Total Work', count: summary.total },
         { label: 'To Do', count: summary.planned },
         { label: 'In Progress', count: summary.inProgress },
-        { label: 'In Review', count: summary.testing },
+        { label: 'On Hold', count: summary.onHold },
         { label: 'Done', count: summary.done },
       ])
       setError(null)

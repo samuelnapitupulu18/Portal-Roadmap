@@ -4,13 +4,13 @@ import { Card, CardContent } from '@/components/ui/card'
 
 const PROGRESS_LABEL = {
   'In Progress': 'Progress',
-  'In Review': 'Complete',
+  'On Hold': 'Complete',
 }
 
 const STATUS_BADGE_CLASS = {
   'To Do': 'bg-orange-100 text-orange-700',
   'In Progress': 'bg-blue-100 text-blue-700',
-  'In Review': 'bg-violet-100 text-violet-700',
+  'On Hold': 'bg-violet-100 text-violet-700',
   'Done': 'bg-emerald-100 text-emerald-700',
 }
 
@@ -31,7 +31,7 @@ export function EpicCard({
   const hasCategory = tag && tag !== '-'
   // Progress bar cuma relevan untuk pekerjaan yang sedang berjalan — To Do
   // belum mulai dan Done sudah tuntas, jadi persentase tidak menambah info.
-  const showProgress = status === 'In Progress' || status === 'In Review'
+  const showProgress = status === 'In Progress' || status === 'On Hold'
   const showDoneRow = isDone && (completedAtLabel || newWorkCount > 0)
 
   return (

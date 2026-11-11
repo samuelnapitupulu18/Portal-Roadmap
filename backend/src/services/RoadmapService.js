@@ -20,6 +20,7 @@ const STATUS_MAP = {
   'in progress': STORY_STATUS.IN_PROGRESS,
   'in development': STORY_STATUS.IN_PROGRESS,
   'development': STORY_STATUS.IN_PROGRESS,
+  'on hold': STORY_STATUS.ON_HOLD,
   'in review': STORY_STATUS.TESTING,
   'in qa': STORY_STATUS.TESTING,
   'testing': STORY_STATUS.TESTING,
@@ -35,6 +36,7 @@ const STATUS_COLORS = {
   [STORY_STATUS.PLANNED]: '#f97316',
   [STORY_STATUS.IN_PROGRESS]: '#3b82f6',
   [STORY_STATUS.TESTING]: '#8b5cf6',
+  [STORY_STATUS.ON_HOLD]: '#8b5cf6',
   [STORY_STATUS.DONE]: '#22c55e',
 };
 
@@ -238,7 +240,7 @@ class RoadmapService {
         ...s,
         effectiveMonthKey: anchor ? anchor.slice(0, 7) : null,
         // Overdue berlaku untuk status apa pun selain Done — To Do, In Progress,
-        // maupun In Review yang due date-nya sudah lewat tetap ditandai.
+        // maupun On Hold yang due date-nya sudah lewat tetap ditandai.
         isOverdue: !isDone && !!due && due < today,
         // Done yang baru selesai setelah due date-nya sendiri tetap ketahuan
         // telat, bukan cuma diam-diam tampil "Done" seperti yang tepat waktu.
@@ -294,7 +296,7 @@ class RoadmapService {
   }
 
   // Urutan default (Priority): epic yang paling butuh perhatian user di atas.
-  // Overdue → In Progress → In Review → To Do (due ≤30 hari) → Upcoming
+  // Overdue → In Progress → On Hold → To Do (due ≤30 hari) → Upcoming
   // (due jauh atau belum ada tanggal) → Done (selesai ≤30 hari) → Done (lama).
   // Di dalam tier yang belum selesai, deadline terdekat naik dulu; di dalam
   // tier Done, yang paling baru selesai naik dulu.
@@ -311,7 +313,7 @@ class RoadmapService {
 
     if (due && due < today) return PRIORITY_TIER.OVERDUE;
     if (story.status === STORY_STATUS.IN_PROGRESS) return PRIORITY_TIER.IN_PROGRESS;
-    if (story.status === STORY_STATUS.TESTING) return PRIORITY_TIER.IN_REVIEW;
+    if (story.status === STORY_STATUS.ON_HOLD) return PRIORITY_TIER.IN_REVIEW;
 
     if (!due) return PRIORITY_TIER.UPCOMING;
     const soonCutoff = this._dateKey(PRIORITY_RECENT_WINDOW_DAYS);
@@ -575,7 +577,7 @@ class RoadmapService {
       total: stories.length,
       planned: count(STORY_STATUS.PLANNED),
       inProgress: count(STORY_STATUS.IN_PROGRESS),
-      testing: count(STORY_STATUS.TESTING),
+      onHold: count(STORY_STATUS.ON_HOLD),
       done: count(STORY_STATUS.DONE),
     };
   }
@@ -589,7 +591,7 @@ class RoadmapService {
   }
 
   _bucketByStatus(stories) {
-    return [STORY_STATUS.PLANNED, STORY_STATUS.IN_PROGRESS, STORY_STATUS.TESTING, STORY_STATUS.DONE]
+    return [STORY_STATUS.PLANNED, STORY_STATUS.IN_PROGRESS, STORY_STATUS.ON_HOLD, STORY_STATUS.DONE]
       .map((status) => ({
         value: status,
         label: status,
